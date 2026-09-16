@@ -1,17 +1,27 @@
-# NotreHybrid
+<p align="center">
+  <a href="https://caedral.com">
+    <img src="docs/assets/caedral-mark.png" alt="Caedral" width="96" height="96">
+  </a>
+</p>
 
-**`notrehybrid`** · Caedral research on a trainable collision cache for GDN linearization.
+<h1 align="center">NotreHybrid</h1>
+
+<p align="center">
+  <strong><code>notrehybrid</code></strong> · Caedral research on a trainable collision cache for GDN linearization.
+</p>
 
 Does a small K-slot buffer, triggered by Gated DeltaNet delta error, reduce
 attention-transfer MSE enough to write a methods paper? Converted models are
 vehicles for that measurement. This repository is **not** a product, not an
 API, and not something to install or sell.
 
-[![License](https://img.shields.io/badge/license-Apache--2.0-green)](LICENSE)
-[![Python](https://img.shields.io/badge/python-3.10%2B-3776AB?logo=python&logoColor=white)](pyproject.toml)
-[![Compute](https://img.shields.io/badge/compute-Kaggle%20T4%C3%972-20BEFF?logo=kaggle&logoColor=white)](notebooks/kaggle_week0_smoke.ipynb)
-[![Status](https://img.shields.io/badge/status-week%200%20setup-orange)](#status)
-[![Org](https://img.shields.io/badge/Caedral-research-111111)](https://caedral.com)
+<p align="center">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-green" alt="License"></a>
+  <a href="pyproject.toml"><img src="https://img.shields.io/badge/python-3.10%2B-3776AB?logo=python&logoColor=white" alt="Python"></a>
+  <a href="notebooks/kaggle_week0_smoke.ipynb"><img src="https://img.shields.io/badge/compute-Kaggle%20T4%C3%972-20BEFF?logo=kaggle&logoColor=white" alt="Compute"></a>
+  <a href="#status"><img src="https://img.shields.io/badge/status-week%200%20setup-orange" alt="Status"></a>
+  <a href="https://caedral.com"><img src="https://img.shields.io/badge/Caedral-research-111111" alt="Caedral"></a>
+</p>
 
 *A project of [Caedral](https://caedral.com). The public Caedral surface is a
 subscription OpenAI-compatible API (chat, embeddings, rerank). NotreHybrid
