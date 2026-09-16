@@ -1,0 +1,37 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "notrehybrid"
+version = "0.0.0"
+description = "Trainable collision cache for GDN linearization (Week 0 scaffold)."
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.10"
+authors = [{ name = "Arthur" }]
+dependencies = [
+    "torch",
+    "flash-linear-attention",
+    "transformers",
+    "datasets",
+    "huggingface_hub",
+    "peft",
+]
+
+[project.optional-dependencies]
+dev = ["pytest"]
+
+[project.urls]
+# Week 1 method repos (clone via setup_kaggle.sh; not installed as the product):
+#   https://github.com/HazyResearch/zoology
+#   https://github.com/HazyResearch/lolcats
+#   https://github.com/FutureMLS-Lab/Taylor-Calibrate
+
+[tool.setuptools.packages.find]
+include = ["notre*"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+addopts = "-q"
