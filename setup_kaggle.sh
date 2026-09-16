@@ -6,7 +6,12 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$ROOT"
 
 python - <<'PY'
-import torch
+import sys
+
+try:
+    import torch
+except ImportError:
+    sys.exit("torch missing — pip install the Kaggle GPU torch wheel first")
 
 if not torch.cuda.is_available():
     raise SystemExit("CUDA is required. Select a GPU runtime (Kaggle T4×2).")
@@ -17,10 +22,11 @@ if major < 7:
     raise SystemExit(
         f"Refuse {name} (capability {major}.{minor}). Never P100. Use T4 or newer."
     )
-print("GPU check OK")
+print("GPU check OK — keeping preinstalled torch", torch.__version__)
 PY
 
-pip install -q torch flash-linear-attention transformers datasets huggingface_hub peft pytest
+# Do not `pip install torch`: Kaggle already ships a CUDA build; a CPU wheel would kill FLA.
+pip install -q flash-linear-attention transformers datasets huggingface_hub peft pytest
 pip install -q "git+https://github.com/HazyResearch/zoology"
 
 mkdir -p third_party

@@ -34,7 +34,7 @@ All of:
 
 Then stop. Do not download SmolLM2 or Qwen to “get ahead.”
 
-Notebook: [notebooks/kaggle_week0_smoke.ipynb](../notebooks/kaggle_week0_smoke.ipynb). Private Hub: [hf-hub.md](hf-hub.md).
+Notebook: [notebooks/kaggle_week0_smoke.ipynb](../notebooks/kaggle_week0_smoke.ipynb) — clone [Caedral-ai/notrehybrid](https://github.com/Caedral-ai/notrehybrid), T4×2, Internet on. Private Hub: [hf-hub.md](hf-hub.md).
 
 ## What is in vs out
 
