@@ -5,11 +5,11 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "notrehybrid"
 version = "0.0.0"
-description = "Trainable collision cache for GDN linearization (Week 0 scaffold)."
+description = "Caedral research: test whether a trainable collision cache, triggered by Gated DeltaNet delta error, improves Transformer linearization enough for a methods paper."
 readme = "README.md"
 license = { file = "LICENSE" }
 requires-python = ">=3.10"
-authors = [{ name = "Arthur" }]
+authors = [{ name = "Caedral", email = "support@caedral.com" }]
 dependencies = [
     "torch",
     "flash-linear-attention",
@@ -23,10 +23,9 @@ dependencies = [
 dev = ["pytest"]
 
 [project.urls]
-# Week 1 method repos (clone via setup_kaggle.sh; not installed as the product):
-#   https://github.com/HazyResearch/zoology
-#   https://github.com/HazyResearch/lolcats
-#   https://github.com/FutureMLS-Lab/Taylor-Calibrate
+Homepage = "https://caedral.com"
+Repository = "https://github.com/Caedral-ai/notrehybrid"
+Issues = "https://github.com/Caedral-ai/notrehybrid/issues"
 
 [tool.setuptools.packages.find]
 include = ["notre*"]

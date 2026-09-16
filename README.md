@@ -160,3 +160,4 @@ Part of the [Caedral](https://caedral.com) ecosystem —
 subscription AI infrastructure for automation agencies.
 
 Apache-2.0 — see [LICENSE](LICENSE).
+How we commit and merge: [CONTRIBUTING.md](CONTRIBUTING.md).
