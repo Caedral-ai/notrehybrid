@@ -1,14 +1,58 @@
 # Execution funnel
 
-This repo follows the local-only long-form plan in `internal-docs/` (gitignored; not on remotes). Do not skip gates. The public schedule is this funnel.
+Public schedule for NotreHybrid. This is **Caedral research** toward a methods paper, not a product roadmap. Do not skip gates.
 
-| When | Work | Kill rule |
-|------|------|-----------|
-| **Week 0** (now) | FLA smoke, dummy 3:1 `HybridBlock`, local `--resume auto` | Change GPU if not T4-class. Never P100. |
-| Week 1 | Gate A: SmolLM2 surgery + Taylor-Calibrate + transfer, **no cache** | PPL still thousands or MSE does not fall → abandon |
-| Weeks 2–3 | Gate B: cache vs twin; ΔMSE decides; MQAR support | ΔMSE ≤ 0 after K/τ sweep → **end project** |
-| Weeks 4–6 | Gate C only if B passed | MSE fail → pilot-only paper |
+The long-form plan stays in local `internal-docs/` (gitignored; not on remotes). Hypothesis, ownership, and Week 0 smoke: [README](../README.md).
 
-Decisions: [decisions/gate-A.md](decisions/gate-A.md), [decisions/gate-B.md](decisions/gate-B.md).
+> **Now: week 0.** FLA on Kaggle T4×2, dummy 3:1 block, `--resume auto`. No SmolLM2, no Qwen, no cache.
 
-**Product:** trainable collision cache. **Vehicle:** converted Qwen/SmolLM2. CPU decode, Rust, FoX/ACP, Notre-1B are out of MVP.
+## Funnel
+
+| When | Work | Artifact | Kill / next |
+|---|---|---|---|
+| **Week 0** | Setup + FLA smoke + dummy `HybridBlock` + resume | `FLA OK` in the Kaggle log; `checkpoints/week0/curve.csv` continues after kill | Wrong GPU → change accelerator. **Never P100.** Then Gate A |
+| **Week 1** | Gate A — SmolLM2 3:1 surgery, Taylor-Calibrate, transfer ~5M tokens, **no cache** | [decisions/gate-A.md](decisions/gate-A.md) | PPL still thousands or MSE does not fall → abandon |
+| **Weeks 2–3** | Gate B — collision cache vs twin; ΔMSE **decides**; MQAR reports | [decisions/gate-B.md](decisions/gate-B.md) + ΔMSE table | ΔMSE ≤ 0 after K/τ sweep → **end**. MQAR+ and MSE− → **end** |
+| **Weeks 4–6** | Gate C — Qwen2.5-0.5B ± twin, only if B passed | Qwen checkpoint + twin + PPL | MSE fail → SmolLM2-only (pilot) paper, or skip replication |
+| **Week 7+** | Optional appendix + draft | figures in the paper, not the README headline | Decode / OpenVINO only after ΔMSE on Qwen |
+
+```
+A fails     → abandon
+B fails     → END. No tech report.
+C MSE fails → pilot-only, or skip replication
+A+B+C MSE   → methods workshop / arXiv
+appendix    → extra figure, not the claim
+```
+
+## Week 0 exit (before Gate A)
+
+All of:
+
+1. `print('FLA OK', …)` on T4-class GPU (capability ≥ 7), fp16, not bf16.
+2. `python -m pytest tests/test_hybrid_block.py -q`
+3. Train ~10 min, kill the session, `--resume auto` continues `curve.csv`.
+
+Then stop. Do not download SmolLM2 or Qwen to “get ahead.”
+
+Notebook: [notebooks/kaggle_week0_smoke.ipynb](../notebooks/kaggle_week0_smoke.ipynb). Private Hub: [hf-hub.md](hf-hub.md).
+
+## What is in vs out
+
+| In the paper if gates pass | Out of this project |
+|---|---|
+| Trainable collision cache, `err_t` trigger, transfer ΔMSE | Shipping a chat model or Caedral API feature |
+| Ablations: LoLA trigger, teacher top-K, random slots | Rust, FoX, ACP, QAT, Notre-1B, `notre-cpu` |
+| Qwen replication after B | tok/s vs llama.cpp as success |
+
+Converted SmolLM2 / Qwen are **vehicles**. The experiment is whether the cache moves MSE.
+
+## Compute
+
+Kaggle T4×2 (30 h/week), Colab T4 overflow, Lightning for short dev. Checkpoint every 25–30 min once Hub exists. FineWeb-Edu streaming when transfer starts — do not download the corpus to disk.
+
+## Decisions
+
+Fill the templates when the run finishes, not before:
+
+- [gate-A.md](decisions/gate-A.md) — GO B / ABANDON / RETRY (LoLCATs)
+- [gate-B.md](decisions/gate-B.md) — GO C / END OF PROJECT
