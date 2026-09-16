@@ -12,7 +12,8 @@ requires-python = ">=3.10"
 authors = [{ name = "Caedral", email = "support@caedral.com" }]
 dependencies = [
     "torch",
-    "flash-linear-attention",
+    "einops",
+    "flash-linear-attention[cuda]>=0.5",
     "transformers",
     "datasets",
     "huggingface_hub",

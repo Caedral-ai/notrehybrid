@@ -25,9 +25,13 @@ if major < 7:
 print("GPU check OK — keeping preinstalled torch", torch.__version__)
 PY
 
-# Do not `pip install torch`: Kaggle already ships a CUDA build; a CPU wheel would kill FLA.
-pip install -q flash-linear-attention transformers datasets huggingface_hub peft pytest
-pip install -q "git+https://github.com/HazyResearch/zoology"
+# Keep Kaggle's CUDA torch. Do not pip install torch or causal_conv1d:
+# Kaggle has no nvcc, and there is often no wheel for this torch/CUDA pair.
+# FLA short-conv falls back to Triton. Zoology is cloned, not pip-installed
+# (its setup pulls causal_conv1d and breaks Week 0).
+pip install -q einops datasets huggingface_hub peft pytest
+pip install -q "flash-linear-attention[cuda]"
+pip install -e "$ROOT" --no-deps
 
 mkdir -p third_party
 if [[ ! -d third_party/lolcats ]]; then
@@ -36,7 +40,8 @@ fi
 if [[ ! -d third_party/Taylor-Calibrate ]]; then
   git clone --depth 1 https://github.com/FutureMLS-Lab/Taylor-Calibrate third_party/Taylor-Calibrate
 fi
-
-pip install -e "$ROOT"
+if [[ ! -d third_party/zoology ]]; then
+  git clone --depth 1 https://github.com/HazyResearch/zoology third_party/zoology
+fi
 
 echo "setup_kaggle.sh done"
