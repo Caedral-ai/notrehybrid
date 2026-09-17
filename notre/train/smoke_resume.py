@@ -8,7 +8,7 @@ import time
 from pathlib import Path
 
 import torch
-from torch.cuda.amp import GradScaler, autocast
+from torch.amp import GradScaler, autocast
 
 from notre.layers.hybrid_block import HybridBlock
 
@@ -23,9 +23,39 @@ def assert_t4_or_newer() -> str:
     return name
 
 
-def latest_ckpt(ckpt_dir: Path) -> Path | None:
+def prune_ckpts(ckpt_dir: Path, keep: int) -> None:
     files = sorted(ckpt_dir.glob("step_*.pt"))
-    return files[-1] if files else None
+    for old in files[:-keep]:
+        old.unlink(missing_ok=True)
+
+
+def loadable_ckpt(path: Path, device: torch.device) -> dict | None:
+    try:
+        return torch.load(path, map_location=device, weights_only=False)
+    except Exception as exc:  # noqa: BLE001 — truncated zip after a disk-full save
+        print(f"skip corrupt {path}: {exc}")
+        path.unlink(missing_ok=True)
+        return None
+
+
+def latest_ckpt(ckpt_dir: Path, device: torch.device) -> tuple[Path, dict] | None:
+    for path in reversed(sorted(ckpt_dir.glob("step_*.pt"))):
+        payload = loadable_ckpt(path, device)
+        if payload is not None:
+            return path, payload
+    return None
+
+
+def save_ckpt(
+    path: Path,
+    payload: dict,
+    ckpt_dir: Path,
+    keep: int,
+) -> None:
+    tmp = path.with_suffix(".pt.tmp")
+    torch.save(payload, tmp)
+    tmp.replace(path)
+    prune_ckpts(ckpt_dir, keep)
 
 
 def log_csv(path: Path, row: dict) -> None:
@@ -48,7 +78,8 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--hidden", type=int, default=512)
     p.add_argument("--heads", type=int, default=8)
     p.add_argument("--lr", type=float, default=1e-4)
-    p.add_argument("--save-every", type=int, default=20)
+    p.add_argument("--save-every", type=int, default=100)
+    p.add_argument("--keep-last", type=int, default=2)
     return p.parse_args()
 
 
@@ -63,61 +94,56 @@ def main() -> None:
         hidden_size=args.hidden, num_heads=args.heads, head_dim=64, mode="chunk"
     ).to(device)
     opt = torch.optim.AdamW(model.parameters(), lr=args.lr)
-    scaler = GradScaler()
+    scaler = GradScaler("cuda")
     step = 0
 
     if args.resume == "auto":
-        ckpt = latest_ckpt(args.ckpt_dir)
-        if ckpt is None:
+        found = latest_ckpt(args.ckpt_dir, device)
+        if found is None:
             print("resume auto: no checkpoint, starting fresh")
         else:
-            payload = torch.load(ckpt, map_location=device, weights_only=False)
+            path, payload = found
             model.load_state_dict(payload["model"])
             opt.load_state_dict(payload["opt"])
             scaler.load_state_dict(payload["scaler"])
             step = int(payload["step"])
-            print(f"resume auto: loaded {ckpt} at step {step}")
+            print(f"resume auto: loaded {path} at step {step}")
 
     print(f"GPU {name} fp16+GradScaler  start_step={step}")
-    deadline = time.time() + args.minutes * 60.0
+    deadline = None if args.max_steps else time.time() + args.minutes * 60.0
     model.train()
 
-    while time.time() < deadline:
+    def payload_at(current: int) -> dict:
+        return {
+            "step": current,
+            "model": model.state_dict(),
+            "opt": opt.state_dict(),
+            "scaler": scaler.state_dict(),
+        }
+
+    while True:
         if args.max_steps and step >= args.max_steps:
+            break
+        if deadline is not None and time.time() >= deadline:
             break
         x = torch.randn(args.batch, args.seq, args.hidden, device=device)
         opt.zero_grad(set_to_none=True)
-        with autocast(dtype=torch.float16):
+        with autocast("cuda", dtype=torch.float16):
             y = model(x)
             loss = y.float().pow(2).mean()
         scaler.scale(loss).backward()
         scaler.step(opt)
         scaler.update()
         step += 1
-        log_csv(csv_path, {"step": step, "loss": float(loss.detach().cpu())})
+        loss_v = float(loss.detach().item())
+        log_csv(csv_path, {"step": step, "loss": loss_v})
         if step % args.save_every == 0:
             path = args.ckpt_dir / f"step_{step:06d}.pt"
-            torch.save(
-                {
-                    "step": step,
-                    "model": model.state_dict(),
-                    "opt": opt.state_dict(),
-                    "scaler": scaler.state_dict(),
-                },
-                path,
-            )
-            print(f"saved {path} loss={float(loss):.6f}")
+            save_ckpt(path, payload_at(step), args.ckpt_dir, args.keep_last)
+            print(f"saved {path} loss={loss_v:.6e}")
 
     path = args.ckpt_dir / f"step_{step:06d}.pt"
-    torch.save(
-        {
-            "step": step,
-            "model": model.state_dict(),
-            "opt": opt.state_dict(),
-            "scaler": scaler.state_dict(),
-        },
-        path,
-    )
+    save_ckpt(path, payload_at(step), args.ckpt_dir, args.keep_last)
     print(f"done step={step} last={path}")
 
 
