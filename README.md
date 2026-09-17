@@ -19,7 +19,7 @@ API, and not something to install or sell.
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-green" alt="License"></a>
   <a href="pyproject.toml"><img src="https://img.shields.io/badge/python-3.10%2B-3776AB?logo=python&logoColor=white" alt="Python"></a>
   <a href="notebooks/kaggle_week0_smoke.ipynb"><img src="https://img.shields.io/badge/compute-Kaggle%20T4%C3%972-20BEFF?logo=kaggle&logoColor=white" alt="Compute"></a>
-  <a href="#status"><img src="https://img.shields.io/badge/status-week%200%20setup-orange" alt="Status"></a>
+  <a href="#status"><img src="https://img.shields.io/badge/status-week%200%20passed-brightgreen" alt="Status"></a>
   <a href="https://caedral.com"><img src="https://img.shields.io/badge/Caedral-research-111111" alt="Caedral"></a>
 </p>
 
@@ -29,9 +29,8 @@ is separate internal research.*
 
 ---
 
-> **Status: week 0 — setup.** FLA smoke on Kaggle T4×2, dummy 3:1 hybrid
-> block, checkpoint `--resume auto`. No SmolLM2, no Qwen, no cache yet.
-> See [docs/PLAN.md](docs/PLAN.md).
+> **Status: week 0 passed (2026-09-17).** FLA + pytest + `--resume auto` on Kaggle T4×2.
+> Log: [docs/decisions/week-0.md](docs/decisions/week-0.md). Next is Gate A (no cache yet).
 
 ## Why
 
@@ -84,8 +83,8 @@ Weeks 4–6 Gate C — Qwen, only if B passed
 |---|---|---|
 | Repo scaffold | ![](https://img.shields.io/badge/status-working-brightgreen) | Apache-2.0, `pyproject.toml`, Kaggle setup |
 | Dummy 3:1 `HybridBlock` | ![](https://img.shields.io/badge/status-working-brightgreen) | 3× FLA GDN + dummy softmax; CPU unit test |
-| FLA T4 smoke | ![](https://img.shields.io/badge/status-run%20on%20Kaggle-lightgrey) | print `FLA OK`; never P100 |
-| Resume harness | ![](https://img.shields.io/badge/status-run%20on%20Kaggle-lightgrey) | 10 min train / kill / `--resume auto` |
+| FLA T4 smoke | ![](https://img.shields.io/badge/status-passed-brightgreen) | `FLA OK Tesla T4` (2026-09-17) |
+| Resume harness | ![](https://img.shields.io/badge/status-passed-brightgreen) | loaded 3 → 21687 → 25871; see [docs/decisions/week-0.md](docs/decisions/week-0.md) |
 | Collision cache | ![](https://img.shields.io/badge/status-week%202-orange) | `notre_linear.py` — not started |
 | Gate A / B / C | ![](https://img.shields.io/badge/status-not%20started-lightgrey) | templates in `docs/decisions/` |
 
@@ -95,7 +94,7 @@ Long-form notes live in local `internal-docs/` (gitignored, not on remotes).
 
 ```
 README.md · LICENSE · pyproject.toml · setup_kaggle.sh
-docs/PLAN.md · docs/decisions/gate-A.md · gate-B.md
+docs/PLAN.md · docs/decisions/week-0.md · gate-A.md · gate-B.md
 notebooks/kaggle_week0_smoke.ipynb
 notre/
   layers/hybrid_block.py     # Week 0: 3× GDN + dummy softmax

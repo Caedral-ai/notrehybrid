@@ -4,13 +4,13 @@ Public schedule for NotreHybrid. This is **Caedral research** toward a methods p
 
 The long-form plan stays in local `internal-docs/` (gitignored; not on remotes). Hypothesis, ownership, and Week 0 smoke: [README](../README.md).
 
-> **Now: week 0.** FLA on Kaggle T4×2, dummy 3:1 block, `--resume auto`. No SmolLM2, no Qwen, no cache.
+> **Now: Gate A (Week 1).** Week 0 smoke passed ([decisions/week-0.md](decisions/week-0.md)). SmolLM2 surgery + Taylor-Calibrate + transfer, **no cache**.
 
 ## Funnel
 
 | When | Work | Artifact | Kill / next |
 |---|---|---|---|
-| **Week 0** | Setup + FLA smoke + dummy `HybridBlock` + resume | `FLA OK` in the Kaggle log; `checkpoints/week0/curve.csv` continues after kill | Wrong GPU → change accelerator. **Never P100.** Then Gate A |
+| **Week 0** | Setup + FLA smoke + dummy `HybridBlock` + resume | [decisions/week-0.md](decisions/week-0.md) — **passed** 2026-09-17 | Then Gate A |
 | **Week 1** | Gate A — SmolLM2 3:1 surgery, Taylor-Calibrate, transfer ~5M tokens, **no cache** | [decisions/gate-A.md](decisions/gate-A.md) | PPL still thousands or MSE does not fall → abandon |
 | **Weeks 2–3** | Gate B — collision cache vs twin; ΔMSE **decides**; MQAR reports | [decisions/gate-B.md](decisions/gate-B.md) + ΔMSE table | ΔMSE ≤ 0 after K/τ sweep → **end**. MQAR+ and MSE− → **end** |
 | **Weeks 4–6** | Gate C — Qwen2.5-0.5B ± twin, only if B passed | Qwen checkpoint + twin + PPL | MSE fail → SmolLM2-only (pilot) paper, or skip replication |
@@ -34,6 +34,8 @@ All of:
 
 Then stop. Do not download SmolLM2 or Qwen to “get ahead.”
 
+**Passed 2026-09-17** — log: [decisions/week-0.md](decisions/week-0.md).
+
 Notebook: [notebooks/kaggle_week0_smoke.ipynb](../notebooks/kaggle_week0_smoke.ipynb) — clone [Caedral-ai/notrehybrid](https://github.com/Caedral-ai/notrehybrid), T4×2, Internet on. Private Hub: [hf-hub.md](hf-hub.md).
 
 ## What is in vs out
@@ -54,5 +56,6 @@ Kaggle T4×2 (30 h/week), Colab T4 overflow, Lightning for short dev. Checkpoint
 
 Fill the templates when the run finishes, not before:
 
+- [week-0.md](decisions/week-0.md) — **GO A** (2026-09-17)
 - [gate-A.md](decisions/gate-A.md) — GO B / ABANDON / RETRY (LoLCATs)
 - [gate-B.md](decisions/gate-B.md) — GO C / END OF PROJECT
