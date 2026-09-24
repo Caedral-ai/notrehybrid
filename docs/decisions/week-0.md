@@ -45,4 +45,4 @@ SmolLM2, Qwen, collision cache, MQAR training, Taylor-Calibrate *runs*, private 
 
 ## Next
 
-Gate A — [gate-A.md](gate-A.md): 3:1 surgery, Taylor-Calibrate, transfer ~5M tokens, **no cache**.
+Gate A — [gate-A.md](gate-A.md): **passed 2026-09-24** (GO B). 3:1 surgery, Taylor-Calibrate, transfer probe, **no cache**.

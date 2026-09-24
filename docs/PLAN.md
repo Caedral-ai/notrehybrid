@@ -4,14 +4,14 @@ Public schedule for NotreHybrid. This is **Caedral research** toward a methods p
 
 The long-form plan stays in local `internal-docs/` (gitignored; not on remotes). Hypothesis, ownership, and Week 0 smoke: [README](../README.md).
 
-> **Now: Gate A (Week 1).** Week 0 smoke passed ([decisions/week-0.md](decisions/week-0.md)). SmolLM2 surgery + Taylor-Calibrate + transfer, **no cache**.
+> **Now: Gate B (Weeks 2–3).** Gate A passed 2026-09-24 ([decisions/gate-A.md](decisions/gate-A.md)). Next is the collision cache.
 
 ## Funnel
 
 | When | Work | Artifact | Kill / next |
 |---|---|---|---|
 | **Week 0** | Setup + FLA smoke + dummy `HybridBlock` + resume | [decisions/week-0.md](decisions/week-0.md) — **passed** 2026-09-17 | Then Gate A |
-| **Week 1** | Gate A — SmolLM2 3:1 surgery, Taylor-Calibrate, transfer ~5M tokens, **no cache** | [decisions/gate-A.md](decisions/gate-A.md) | PPL still thousands or MSE does not fall → abandon |
+| **Week 1** | Gate A — SmolLM2 3:1 surgery, Taylor-Calibrate, transfer probe, **no cache** | [decisions/gate-A.md](decisions/gate-A.md) — **passed** 2026-09-24 | PPL still thousands or MSE does not fall → abandon |
 | **Weeks 2–3** | Gate B — collision cache vs twin; ΔMSE **decides**; MQAR reports | [decisions/gate-B.md](decisions/gate-B.md) + ΔMSE table | ΔMSE ≤ 0 after K/τ sweep → **end**. MQAR+ and MSE− → **end** |
 | **Weeks 4–6** | Gate C — Qwen2.5-0.5B ± twin, only if B passed | Qwen checkpoint + twin + PPL | MSE fail → SmolLM2-only (pilot) paper, or skip replication |
 | **Week 7+** | Optional appendix + draft | figures in the paper, not the README headline | Decode / OpenVINO only after ΔMSE on Qwen |
@@ -56,7 +56,9 @@ python -m notre.convert.transfer --cfg configs/smollm2_360m/gate_a.yaml \
   --ckpt-dir ./checkpoints/gate-a --resume auto
 ```
 
-Pass: calibrated zero-shot PPL ≪ copy-only; transfer MSE falls and stabilizes; no NaN in fp16. Then fill [decisions/gate-A.md](decisions/gate-A.md).
+Pass: calibrated zero-shot PPL ≪ copy-only; transfer MSE falls and stabilizes; no NaN in fp16.
+
+**Passed 2026-09-24** — log: [decisions/gate-A.md](decisions/gate-A.md). Copy-only PPL 1156, Taylor PPL 346, probe MSE 1.555 → 0.798.
 
 ## What is in vs out
 
@@ -77,5 +79,5 @@ Kaggle T4×2 (30 h/week), Colab T4 overflow, Lightning for short dev. Checkpoint
 Fill the templates when the run finishes, not before:
 
 - [week-0.md](decisions/week-0.md) — **GO A** (2026-09-17)
-- [gate-A.md](decisions/gate-A.md) — GO B / ABANDON / RETRY (LoLCATs)
+- [gate-A.md](decisions/gate-A.md) — **GO B** (2026-09-24)
 - [gate-B.md](decisions/gate-B.md) — GO C / END OF PROJECT

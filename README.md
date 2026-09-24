@@ -19,7 +19,7 @@ API, and not something to install or sell.
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-green" alt="License"></a>
   <a href="pyproject.toml"><img src="https://img.shields.io/badge/python-3.10%2B-3776AB?logo=python&logoColor=white" alt="Python"></a>
   <a href="notebooks/kaggle_week0_smoke.ipynb"><img src="https://img.shields.io/badge/compute-Kaggle%20T4%C3%972-20BEFF?logo=kaggle&logoColor=white" alt="Compute"></a>
-  <a href="#status"><img src="https://img.shields.io/badge/status-gate%20A%20in%20progress-orange" alt="Status"></a>
+  <a href="#status"><img src="https://img.shields.io/badge/status-gate%20A%20passed-brightgreen" alt="Status"></a>
   <a href="https://caedral.com"><img src="https://img.shields.io/badge/Caedral-research-111111" alt="Caedral"></a>
 </p>
 
@@ -29,10 +29,11 @@ is separate internal research.*
 
 ---
 
-> **Status: Gate A in progress.** Week 0 passed 2026-09-17
-> ([docs/decisions/week-0.md](docs/decisions/week-0.md)). SmolLM2 3:1 surgery +
-> Taylor-Calibrate + transfer MSE, **no cache**. Notebook:
-> [notebooks/kaggle_gate_a.ipynb](notebooks/kaggle_gate_a.ipynb).
+> **Status: Gate A passed 2026-09-24 (GO B).** Week 0 passed 2026-09-17.
+> Log: [docs/decisions/gate-A.md](docs/decisions/gate-A.md).
+> SmolLM2 3:1 + Taylor-Calibrate + transfer probe, **no cache**.
+> Notebook: [notebooks/kaggle_gate_a.ipynb](notebooks/kaggle_gate_a.ipynb).
+> Gate B (collision cache) is next.
 
 ## Why
 
@@ -88,7 +89,7 @@ Weeks 4–6 Gate C — Qwen, only if B passed
 | FLA T4 smoke | ![](https://img.shields.io/badge/status-passed-brightgreen) | `FLA OK Tesla T4` (2026-09-17) |
 | Resume harness | ![](https://img.shields.io/badge/status-passed-brightgreen) | loaded 3 → 21687 → 25871; see [docs/decisions/week-0.md](docs/decisions/week-0.md) |
 | Collision cache | ![](https://img.shields.io/badge/status-week%202-orange) | `notre_linear.py` — not started |
-| Gate A convert / transfer | ![](https://img.shields.io/badge/status-in%20progress-orange) | 3:1 surgery, Taylor-Calibrate fp16, FineWeb MSE; **no cache** |
+| Gate A convert / transfer | ![](https://img.shields.io/badge/status-passed-brightgreen) | PPL 1156 → 346; MSE 1.555 → 0.798; [docs/decisions/gate-A.md](docs/decisions/gate-A.md) |
 | Gate B / C | ![](https://img.shields.io/badge/status-not%20started-lightgrey) | templates in `docs/decisions/` |
 
 Long-form notes live in local `internal-docs/` (gitignored, not on remotes).
@@ -104,7 +105,7 @@ notre/
   layers/hybrid_block.py     # Week 0: 3× GDN + dummy softmax
   train/smoke_resume.py      # local checkpoint resume
   convert/                   # Gate A: HF→FLA, 3:1, Taylor init, transfer
-  eval/ppl.py                # WikiText-2 PPL (fp16)
+  eval/ppl.py                # WikiText-2 PPL (fp32)
 tests/test_hybrid_block.py · test_surgery.py
 internal-docs/               # gitignored — canonical research plan
 ```
