@@ -1,7 +1,9 @@
-"""Gate A attention-transfer MSE. FineWeb-Edu streaming, fp16 + GradScaler, no cache.
+"""Gate A attention-transfer MSE. FineWeb-Edu streaming, no cache.
 
-Wraps Taylor-Calibrate's AttentionDistillationWrapper. Their Stage-1 trainer is
-bf16 / 8-GPU / DeepSpeed; this loop is the T4 substitute.
+Frozen teacher stays fp16. Trainable GDN weights stay fp32 so GradScaler can
+unscale, and the GDN forward runs outside autocast. The loss is fp16 autocast
+on the teacher path only. Their Stage-1 trainer is bf16 / 8-GPU / DeepSpeed;
+this loop is the T4 substitute.
 """
 
 from __future__ import annotations
@@ -45,7 +47,16 @@ class AttentionDistillationWrapper(nn.Module):
         kwargs["use_cache"] = False
         with torch.no_grad():
             t_hidden, _, _ = self.teacher_attn(*args, **kwargs)
-        s_hidden, _, _ = self.student_attn(*args, **kwargs)
+        # GDN state stays fp32. Autocast would cast the recurrent part to fp16.
+        student_args = tuple(
+            a.float() if torch.is_tensor(a) and a.is_floating_point() else a for a in args
+        )
+        student_kwargs = {
+            k: (v.float() if torch.is_tensor(v) and v.is_floating_point() else v)
+            for k, v in kwargs.items()
+        }
+        with autocast("cuda", enabled=False):
+            s_hidden, _, _ = self.student_attn(*student_args, **student_kwargs)
         distill_loss = torch.linalg.vector_norm(
             t_hidden.float() - s_hidden.float(), dim=-1
         ).mean() * (t_hidden.size(-1) ** -0.5)
@@ -91,6 +102,14 @@ def build_wrapped_teacher(cfg: dict, device: torch.device) -> tuple[nn.Module, l
             layer.attn, student_cls, model.config, idx
         )
 
+    # Teacher weights are fp16. Student weights are loaded after that cast so the
+    # fp32 Taylor checkpoint is not rounded away, then left in fp32 for GradScaler.
+    model = model.to(device=device, dtype=torch.float16)
+    for layer in model.model.layers:
+        student = getattr(getattr(layer, "attn", None), "student_attn", None)
+        if student is not None:
+            student.float()
+
     init_dir = cfg["train"].get("student_init_ckpt")
     if init_dir:
         init_path = Path(init_dir)
@@ -111,7 +130,9 @@ def build_wrapped_teacher(cfg: dict, device: torch.device) -> tuple[nn.Module, l
 
     for name, p in model.named_parameters():
         p.requires_grad_(".student_attn." in name)
-    return model.to(device=device, dtype=torch.float16), keep_layers
+        if p.requires_grad and p.dtype != torch.float32:
+            raise RuntimeError(f"trainable param {name} is {p.dtype}, want float32")
+    return model, keep_layers
 
 
 def iter_fineweb_chunks(tokenizer, seq_len: int, subset: str, seed: int):
@@ -169,7 +190,7 @@ def run_transfer(cfg: dict, args: argparse.Namespace) -> None:
     global _COLLECTING
     gpu = assert_t4_or_newer()
     device = torch.device("cuda")
-    print(f"Gate A transfer fp16 on {gpu} — no cache")
+    print(f"Gate A transfer fp32 student / fp16 teacher on {gpu} — no cache")
 
     seq_len = int(cfg["train"]["train_seq_len"])
     micro = int(cfg["train"].get("micro_batch_size", 1))
