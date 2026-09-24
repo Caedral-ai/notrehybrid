@@ -42,6 +42,17 @@ def assert_t4_or_newer() -> str:
     return name
 
 
+def coerce_tied_keys(cls) -> None:
+    """Newer Transformers expects ``_tied_weights_keys`` to be a dict.
+
+    FLA and Taylor-Calibrate still ship a list, and ``from_config`` then crashes
+    with ``'list' object has no attribute 'keys'``.
+    """
+    mapping = getattr(cls, "_tied_weights_keys", None)
+    if isinstance(mapping, list):
+        cls._tied_weights_keys = {name: "model.embeddings.weight" for name in mapping}
+
+
 def register_hf_classes() -> None:
     """FLA Transformer teacher + Taylor-Calibrate StudentForCausalLM."""
     import notre.convert.flash_attn_sdpa  # noqa: F401  before fla
@@ -58,3 +69,5 @@ def register_hf_classes() -> None:
     AutoModelForCausalLM.register(TransformerConfig, TransformerForCausalLM, exist_ok=True)
     AutoConfig.register("student", StudentConfig, exist_ok=True)
     AutoModelForCausalLM.register(StudentConfig, StudentForCausalLM, exist_ok=True)
+    coerce_tied_keys(TransformerForCausalLM)
+    coerce_tied_keys(StudentForCausalLM)

@@ -36,6 +36,16 @@ def test_gate_a_yaml_matches_surgery() -> None:
     assert cfg["train"]["quantize_frozen"] is False
 
 
+def test_coerce_tied_keys_list_to_dict() -> None:
+    from notre.convert.paths import coerce_tied_keys
+
+    class Model:
+        _tied_weights_keys = ["lm_head.weight"]
+
+    coerce_tied_keys(Model)
+    assert Model._tied_weights_keys == {"lm_head.weight": "model.embeddings.weight"}
+
+
 def test_sdpa_matches_causal_attention() -> None:
     torch = pytest.importorskip("torch")
     from notre.convert.flash_attn_sdpa import flash_attn_func

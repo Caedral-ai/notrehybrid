@@ -18,7 +18,10 @@ import fla  # noqa: F401
 from fla.models.transformer.configuration_transformer import TransformerConfig
 from fla.models.transformer.modeling_transformer import TransformerForCausalLM
 
+from notre.convert.paths import coerce_tied_keys
 from notre.convert.surgery import SMOLLM2_HF, SMOLLM2_LAYERS
+
+coerce_tied_keys(TransformerForCausalLM)
 
 AutoConfig.register("transformer", TransformerConfig, exist_ok=True)
 AutoModelForCausalLM.register(TransformerConfig, TransformerForCausalLM, exist_ok=True)
