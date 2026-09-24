@@ -36,6 +36,23 @@ def test_gate_a_yaml_matches_surgery() -> None:
     assert cfg["train"]["quantize_frozen"] is False
 
 
+def test_rope_theta_from_parameters() -> None:
+    from notre.convert.paths import rope_theta_from
+
+    class Legacy:
+        rope_theta = 10000.0
+
+    class Current:
+        rope_parameters = {"rope_theta": 10000.0, "rope_type": "default"}
+
+    class Missing:
+        pass
+
+    assert rope_theta_from(Legacy()) == 10000.0
+    assert rope_theta_from(Current()) == 10000.0
+    assert rope_theta_from(Missing(), default=100000.0) == 100000.0
+
+
 def test_coerce_tied_keys_list_to_dict() -> None:
     from notre.convert.paths import coerce_tied_keys
 

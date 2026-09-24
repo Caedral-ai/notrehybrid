@@ -42,6 +42,18 @@ def assert_t4_or_newer() -> str:
     return name
 
 
+def rope_theta_from(config, default: float = 100_000.0) -> float:
+    """SmolLM2 on current Transformers stores RoPE on ``rope_parameters``, not ``rope_theta``."""
+    value = getattr(config, "rope_theta", None)
+    if value is not None:
+        return float(value)
+    for name in ("rope_parameters", "rope_scaling"):
+        params = getattr(config, name, None)
+        if isinstance(params, dict) and params.get("rope_theta") is not None:
+            return float(params["rope_theta"])
+    return default
+
+
 def coerce_tied_keys(cls) -> None:
     """Newer Transformers expects ``_tied_weights_keys`` to be a dict.
 

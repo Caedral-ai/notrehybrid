@@ -18,7 +18,7 @@ import fla  # noqa: F401
 from fla.models.transformer.configuration_transformer import TransformerConfig
 from fla.models.transformer.modeling_transformer import TransformerForCausalLM
 
-from notre.convert.paths import coerce_tied_keys
+from notre.convert.paths import coerce_tied_keys, rope_theta_from
 from notre.convert.surgery import SMOLLM2_HF, SMOLLM2_LAYERS
 
 coerce_tied_keys(TransformerForCausalLM)
@@ -92,7 +92,7 @@ def convert(hf_id: str, output: Path, precision: str = "float16") -> None:
         model.model.norm.weight.data.copy_(llama.model.norm.weight)
     if not model.config.tie_word_embeddings:
         model.lm_head.weight.data[:vocab].copy_(llama.lm_head.weight[:vocab])
-    model.config.rope_theta = llama.config.rope_theta
+    model.config.rope_theta = rope_theta_from(llama.config, default=float(model.config.rope_theta))
     model.save_pretrained(output)
     print(f"saved FLA teacher → {output}")
 
