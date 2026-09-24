@@ -36,7 +36,27 @@ Then stop. Do not download SmolLM2 or Qwen to “get ahead.”
 
 **Passed 2026-09-17** — log: [decisions/week-0.md](decisions/week-0.md).
 
-Notebook: [notebooks/kaggle_week0_smoke.ipynb](../notebooks/kaggle_week0_smoke.ipynb) — clone [Caedral-ai/notrehybrid](https://github.com/Caedral-ai/notrehybrid), T4×2, Internet on. Private Hub: [hf-hub.md](hf-hub.md).
+Week 0 notebook: [notebooks/kaggle_week0_smoke.ipynb](../notebooks/kaggle_week0_smoke.ipynb).
+Gate A notebook: [notebooks/kaggle_gate_a.ipynb](../notebooks/kaggle_gate_a.ipynb) — clone [Caedral-ai/notrehybrid](https://github.com/Caedral-ai/notrehybrid), T4×2, Internet on. Private Hub: [hf-hub.md](hf-hub.md).
+
+## Gate A commands
+
+Taylor-Calibrate has no SmolLM2 converter and its trainer is bf16/8-GPU. Gate A converts SmolLM2 locally, calls their Taylor init, and runs transfer in fp16 on T4. **No cache.**
+
+```sh
+python -m notre.convert.convert_smollm2 --out ./teachers/SmolLM2-360M
+python -m notre.convert.init_student --cfg configs/smollm2_360m/gate_a.yaml \
+  --output ./checkpoints/gate-a/init-copy --teacher ./teachers/SmolLM2-360M
+python -m notre.convert.taylor_calibrate --cfg configs/smollm2_360m/gate_a.yaml \
+  --output ./checkpoints/gate-a/init-taylor --teacher ./teachers/SmolLM2-360M
+python -m notre.eval.ppl --ckpt ./checkpoints/gate-a/init-copy --tokenizer ./teachers/SmolLM2-360M
+python -m notre.eval.ppl --ckpt ./checkpoints/gate-a/init-taylor --tokenizer ./teachers/SmolLM2-360M
+python -m notre.convert.transfer --cfg configs/smollm2_360m/gate_a.yaml \
+  --teacher ./teachers/SmolLM2-360M --student-init ./checkpoints/gate-a/init-taylor \
+  --ckpt-dir ./checkpoints/gate-a --resume auto
+```
+
+Pass: calibrated zero-shot PPL ≪ copy-only; transfer MSE falls and stabilizes; no NaN in fp16. Then fill [decisions/gate-A.md](decisions/gate-A.md).
 
 ## What is in vs out
 

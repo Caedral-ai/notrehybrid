@@ -1,0 +1,24 @@
+# Gate A — SmolLM2-360M 3:1 GDN (no cache). T4 fp16 only.
+data:
+  dataset: HuggingFaceFW/fineweb-edu
+  subset: sample-10BT
+
+teacher_model:
+  name: ./teachers/SmolLM2-360M
+
+student_model:
+  name: gdn_v4
+  keep_full_attention_layers: [0, 4, 8, 12, 16, 20, 24, 28]
+
+train:
+  target_tokens: 5000000
+  batch_size: 2
+  micro_batch_size: 1
+  train_seq_len: 1024
+  lr: 0.001
+  lr_attn: 0.001
+  output_dir: ./checkpoints/gate-a
+  student_init_ckpt: ./checkpoints/gate-a/init-taylor
+  quantize_frozen: false
+  save_steps: 100
+  save_total_limit: 2

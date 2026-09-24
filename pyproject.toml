@@ -18,6 +18,7 @@ dependencies = [
     "datasets",
     "huggingface_hub",
     "peft",
+    "pyyaml",
 ]
 
 [project.optional-dependencies]

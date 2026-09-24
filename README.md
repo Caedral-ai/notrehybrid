@@ -19,7 +19,7 @@ API, and not something to install or sell.
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-green" alt="License"></a>
   <a href="pyproject.toml"><img src="https://img.shields.io/badge/python-3.10%2B-3776AB?logo=python&logoColor=white" alt="Python"></a>
   <a href="notebooks/kaggle_week0_smoke.ipynb"><img src="https://img.shields.io/badge/compute-Kaggle%20T4%C3%972-20BEFF?logo=kaggle&logoColor=white" alt="Compute"></a>
-  <a href="#status"><img src="https://img.shields.io/badge/status-week%200%20passed-brightgreen" alt="Status"></a>
+  <a href="#status"><img src="https://img.shields.io/badge/status-gate%20A%20in%20progress-orange" alt="Status"></a>
   <a href="https://caedral.com"><img src="https://img.shields.io/badge/Caedral-research-111111" alt="Caedral"></a>
 </p>
 
@@ -29,8 +29,10 @@ is separate internal research.*
 
 ---
 
-> **Status: week 0 passed (2026-09-17).** FLA + pytest + `--resume auto` on Kaggle T4×2.
-> Log: [docs/decisions/week-0.md](docs/decisions/week-0.md). Next is Gate A (no cache yet).
+> **Status: Gate A in progress.** Week 0 passed 2026-09-17
+> ([docs/decisions/week-0.md](docs/decisions/week-0.md)). SmolLM2 3:1 surgery +
+> Taylor-Calibrate + transfer MSE, **no cache**. Notebook:
+> [notebooks/kaggle_gate_a.ipynb](notebooks/kaggle_gate_a.ipynb).
 
 ## Why
 
@@ -86,7 +88,8 @@ Weeks 4–6 Gate C — Qwen, only if B passed
 | FLA T4 smoke | ![](https://img.shields.io/badge/status-passed-brightgreen) | `FLA OK Tesla T4` (2026-09-17) |
 | Resume harness | ![](https://img.shields.io/badge/status-passed-brightgreen) | loaded 3 → 21687 → 25871; see [docs/decisions/week-0.md](docs/decisions/week-0.md) |
 | Collision cache | ![](https://img.shields.io/badge/status-week%202-orange) | `notre_linear.py` — not started |
-| Gate A / B / C | ![](https://img.shields.io/badge/status-not%20started-lightgrey) | templates in `docs/decisions/` |
+| Gate A convert / transfer | ![](https://img.shields.io/badge/status-in%20progress-orange) | 3:1 surgery, Taylor-Calibrate fp16, FineWeb MSE; **no cache** |
+| Gate B / C | ![](https://img.shields.io/badge/status-not%20started-lightgrey) | templates in `docs/decisions/` |
 
 Long-form notes live in local `internal-docs/` (gitignored, not on remotes).
 
@@ -95,16 +98,18 @@ Long-form notes live in local `internal-docs/` (gitignored, not on remotes).
 ```
 README.md · LICENSE · pyproject.toml · setup_kaggle.sh
 docs/PLAN.md · docs/decisions/week-0.md · gate-A.md · gate-B.md
-notebooks/kaggle_week0_smoke.ipynb
+notebooks/kaggle_week0_smoke.ipynb · kaggle_gate_a.ipynb
+configs/smollm2_360m/gate_a.yaml
 notre/
   layers/hybrid_block.py     # Week 0: 3× GDN + dummy softmax
   train/smoke_resume.py      # local checkpoint resume
-tests/test_hybrid_block.py
+  convert/                   # Gate A: HF→FLA, 3:1, Taylor init, transfer
+  eval/ppl.py                # WikiText-2 PPL (fp16)
+tests/test_hybrid_block.py · test_surgery.py
 internal-docs/               # gitignored — canonical research plan
 ```
 
-Week 1+ (not in tree yet): `notre_linear.py`, surgery, Taylor-Calibrate,
-transfer, MSE / MQAR eval.
+Week 2+ (not in tree yet): `notre_linear.py` collision cache, MQAR.
 
 ## Quick start (Week 0)
 
@@ -131,6 +136,44 @@ python -m notre.train.smoke_resume --minutes 10 --ckpt-dir ./checkpoints/week0 -
 ```
 
 Notebook: [notebooks/kaggle_week0_smoke.ipynb](notebooks/kaggle_week0_smoke.ipynb).
+
+## Gate A (Week 1)
+
+**No cache.** Convert SmolLM2 ourselves (Taylor-Calibrate has no SmolLM2
+converter). Call their Taylor init. Run transfer in **fp16** on T4. Never bf16.
+
+```sh
+bash setup_kaggle.sh
+
+python -m pytest tests/test_surgery.py tests/test_hybrid_block.py -q
+
+python -m notre.convert.convert_smollm2 \
+  --hf HuggingFaceTB/SmolLM2-360M \
+  --out ./teachers/SmolLM2-360M
+
+python -m notre.convert.init_student \
+  --cfg configs/smollm2_360m/gate_a.yaml \
+  --output ./checkpoints/gate-a/init-copy \
+  --teacher ./teachers/SmolLM2-360M
+
+python -m notre.convert.taylor_calibrate \
+  --cfg configs/smollm2_360m/gate_a.yaml \
+  --output ./checkpoints/gate-a/init-taylor \
+  --teacher ./teachers/SmolLM2-360M
+
+python -m notre.eval.ppl --ckpt ./checkpoints/gate-a/init-copy \
+  --tokenizer ./teachers/SmolLM2-360M
+python -m notre.eval.ppl --ckpt ./checkpoints/gate-a/init-taylor \
+  --tokenizer ./teachers/SmolLM2-360M
+
+python -m notre.convert.transfer --cfg configs/smollm2_360m/gate_a.yaml \
+  --teacher ./teachers/SmolLM2-360M \
+  --student-init ./checkpoints/gate-a/init-taylor \
+  --ckpt-dir ./checkpoints/gate-a --resume auto
+```
+
+Notebook: [notebooks/kaggle_gate_a.ipynb](notebooks/kaggle_gate_a.ipynb).
+Fill [docs/decisions/gate-A.md](docs/decisions/gate-A.md) after the run.
 
 Private Hub (after `huggingface-cli login`):
 

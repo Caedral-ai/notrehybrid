@@ -29,7 +29,7 @@ PY
 # Kaggle has no nvcc, and there is often no wheel for this torch/CUDA pair.
 # FLA short-conv falls back to Triton. Zoology is cloned, not pip-installed
 # (its setup pulls causal_conv1d and breaks Week 0).
-pip install -q einops datasets huggingface_hub peft pytest
+pip install -q einops datasets huggingface_hub peft pytest pyyaml safetensors
 pip install -q "flash-linear-attention[cuda]"
 pip install -e "$ROOT" --no-deps
 
