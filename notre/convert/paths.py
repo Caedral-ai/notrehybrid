@@ -44,6 +44,8 @@ def assert_t4_or_newer() -> str:
 
 def register_hf_classes() -> None:
     """FLA Transformer teacher + Taylor-Calibrate StudentForCausalLM."""
+    import notre.convert.flash_attn_sdpa  # noqa: F401  before fla
+
     ensure_taylor_on_path()
     import fla  # noqa: F401
     from transformers import AutoConfig, AutoModelForCausalLM

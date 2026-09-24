@@ -13,6 +13,7 @@ from pathlib import Path
 import torch
 from transformers import AutoConfig, AutoModelForCausalLM, AutoTokenizer
 
+import notre.convert.flash_attn_sdpa  # noqa: F401  before fla
 import fla  # noqa: F401
 from fla.models.transformer.configuration_transformer import TransformerConfig
 from fla.models.transformer.modeling_transformer import TransformerForCausalLM

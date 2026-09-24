@@ -36,6 +36,24 @@ def test_gate_a_yaml_matches_surgery() -> None:
     assert cfg["train"]["quantize_frozen"] is False
 
 
+def test_sdpa_matches_causal_attention() -> None:
+    torch = pytest.importorskip("torch")
+    from notre.convert.flash_attn_sdpa import flash_attn_func
+
+    torch.manual_seed(0)
+    q = torch.randn(2, 5, 4, 8)
+    k = torch.randn(2, 5, 4, 8)
+    v = torch.randn(2, 5, 4, 8)
+    out = flash_attn_func(q, k, v, causal=True)
+    scale = 8 ** -0.5
+    scores = torch.matmul(q.transpose(1, 2), k.transpose(1, 2).transpose(-1, -2)) * scale
+    mask = torch.triu(torch.ones(5, 5, dtype=torch.bool), diagonal=1)
+    scores = scores.masked_fill(mask, float("-inf"))
+    ref = torch.matmul(torch.softmax(scores, dim=-1), v.transpose(1, 2)).transpose(1, 2)
+    assert out.shape == q.shape
+    assert torch.allclose(out, ref, atol=1e-5)
+
+
 def test_taylor_root_requires_clone(tmp_path, monkeypatch) -> None:
     from notre.convert import paths
 
