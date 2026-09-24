@@ -15,7 +15,7 @@ from notre.convert.paths import assert_t4_or_newer, register_hf_classes
 
 def load_model(ckpt: str, device: torch.device):
     register_hf_classes()
-    model = AutoModelForCausalLM.from_pretrained(ckpt, torch_dtype=torch.float16)
+    model = AutoModelForCausalLM.from_pretrained(ckpt, torch_dtype=torch.float32)
     return model.to(device).eval()
 
 

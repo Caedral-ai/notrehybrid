@@ -28,7 +28,7 @@ def _copy_if_present(dst_module, src_module, name: str) -> None:
         dst.eps = src.variance_epsilon
 
 
-def build_student_from_teacher(cfg: dict, dtype: torch.dtype = torch.float16):
+def build_student_from_teacher(cfg: dict, dtype: torch.dtype = torch.float32):
     register_hf_classes()
     from distill_model.config_distilled_student import StudentConfig
 

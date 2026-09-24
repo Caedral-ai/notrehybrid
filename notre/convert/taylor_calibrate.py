@@ -21,7 +21,8 @@ def run_taylor_calibrate(cfg: dict, output: Path, hf_teacher: str) -> None:
     name = assert_t4_or_newer()
     print(f"Taylor-Calibrate fp16 on {name}")
     device = "cuda"
-    student = build_student_from_teacher(cfg, dtype=torch.float16)
+    # fp32: their per-layer AdamW step overflows fp16 weights and the PPL is NaN.
+    student = build_student_from_teacher(cfg, dtype=torch.float32)
     student = student.eval().cpu()
     torch.cuda.empty_cache()
     hf_model = AutoModelForCausalLM.from_pretrained(
