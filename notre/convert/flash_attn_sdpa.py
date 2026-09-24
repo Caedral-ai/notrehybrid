@@ -6,6 +6,7 @@ no nvcc, so that wheel does not build. Register this before importing ``fla``.
 
 from __future__ import annotations
 
+import importlib.machinery
 import sys
 import types
 
@@ -87,13 +88,28 @@ def flash_attn_varlen_func(
 
 
 def install() -> None:
-    """Expose SDPA as flash_attn unless a real install is already imported."""
-    existing = sys.modules.get("flash_attn")
-    if existing is not None and getattr(existing, "__file__", None):
-        func = getattr(existing, "flash_attn_func", None)
-        if func is not None and func is not flash_attn_func:
-            return
-    mod = existing or types.ModuleType("flash_attn")
+    """Expose SDPA as flash_attn unless a real install is already present.
+
+    Transformers calls ``find_spec('flash_attn')`` while FLA imports. A module
+    with ``__spec__ is None`` raises. Let that check run first, then register a
+    spec-backed stand-in so FLA softmax layers can be constructed on T4.
+    """
+    try:
+        import importlib.metadata as metadata
+
+        metadata.version("flash_attn")
+        return
+    except metadata.PackageNotFoundError:
+        pass
+    sys.modules.pop("flash_attn", None)
+    import transformers.modeling_flash_attention_utils  # noqa: F401
+
+    mod = types.ModuleType("flash_attn")
+    mod.__spec__ = importlib.machinery.ModuleSpec(
+        "flash_attn", loader=None, origin="notre-sdpa-fallback"
+    )
+    mod.__file__ = "notre-sdpa-fallback"
+    mod.__package__ = "flash_attn"
     mod.flash_attn_func = flash_attn_func
     mod.flash_attn_varlen_func = flash_attn_varlen_func
     sys.modules["flash_attn"] = mod
