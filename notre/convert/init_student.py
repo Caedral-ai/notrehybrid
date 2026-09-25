@@ -28,6 +28,21 @@ def _copy_if_present(dst_module, src_module, name: str) -> None:
         dst.eps = src.variance_epsilon
 
 
+def _load_safetensors(path: Path) -> dict:
+    from safetensors.torch import load_file
+
+    single = path / "model.safetensors"
+    if single.exists():
+        return load_file(str(single))
+    shards = sorted(path.glob("model-*.safetensors"))
+    if not shards:
+        raise SystemExit(f"no safetensors in {path}")
+    out: dict = {}
+    for shard in shards:
+        out.update(load_file(str(shard)))
+    return out
+
+
 def build_student_from_teacher(cfg: dict, dtype: torch.dtype = torch.float32):
     register_hf_classes()
     from distill_model.config_distilled_student import StudentConfig
@@ -39,17 +54,21 @@ def build_student_from_teacher(cfg: dict, dtype: torch.dtype = torch.float32):
     )
 
     print(f"building student from {teacher_name}", flush=True)
-    teacher_config = AutoConfig.from_pretrained(teacher_name, local_files_only=True)
+    teacher_dir = Path(teacher_name)
+    teacher_config = AutoConfig.from_pretrained(teacher_dir, local_files_only=True)
     config_dict = teacher_config.to_dict()
     config_dict["name"] = "student"
     config_dict["student_name"] = student_name
     config_dict["keep_full_attention_layers"] = list(keep_layers)
     student_config = StudentConfig(**config_dict)
 
-    teacher = AutoModelForCausalLM.from_pretrained(
-        teacher_name, torch_dtype=dtype, low_cpu_mem_usage=False, local_files_only=True
+    teacher = AutoModelForCausalLM.from_config(teacher_config)
+    missing, unexpected = teacher.load_state_dict(_load_safetensors(teacher_dir), strict=False)
+    teacher = teacher.to(dtype=dtype)
+    print(
+        f"teacher module ready missing={len(missing)} unexpected={len(unexpected)}",
+        flush=True,
     )
-    print("teacher module ready", flush=True)
     student = AutoModelForCausalLM.from_config(student_config, torch_dtype=dtype)
 
     student.model.embeddings.weight.data.copy_(teacher.model.embeddings.weight.data)
