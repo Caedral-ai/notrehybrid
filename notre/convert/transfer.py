@@ -110,10 +110,17 @@ def build_wrapped_teacher(
     )
     student_cls = get_student_attention_class(cfg["student_model"]["name"])
     print(f"loading teacher {teacher_name}", flush=True)
-    model = AutoModelForCausalLM.from_pretrained(
-        teacher_name, torch_dtype=torch.float16, local_files_only=True
+    teacher_dir = Path(teacher_name)
+    config = AutoConfig.from_pretrained(teacher_dir, local_files_only=True)
+    model = AutoModelForCausalLM.from_config(config, torch_dtype=torch.float16)
+    weights = _load_student_sd(teacher_dir)
+    if not weights:
+        raise SystemExit(f"no safetensors in {teacher_dir}")
+    missing, unexpected = model.load_state_dict(weights, strict=False)
+    print(
+        f"teacher weights loaded missing={len(missing)} unexpected={len(unexpected)}",
+        flush=True,
     )
-    print("teacher weights loaded", flush=True)
     model.config.use_cache = False
     for idx, layer in enumerate(model.model.layers):
         if idx in keep_layers:
