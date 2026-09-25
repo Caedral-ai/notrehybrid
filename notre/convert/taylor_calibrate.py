@@ -27,7 +27,10 @@ def run_taylor_calibrate(cfg: dict, output: Path, hf_teacher: str) -> None:
     student = student.eval().cpu()
     torch.cuda.empty_cache()
     hf_model = AutoModelForCausalLM.from_pretrained(
-        hf_teacher, torch_dtype=torch.float16, attn_implementation="eager"
+        hf_teacher,
+        torch_dtype=torch.float16,
+        attn_implementation="eager",
+        low_cpu_mem_usage=False,
     ).to(device).eval()
     tokenizer = AutoTokenizer.from_pretrained(hf_teacher)
     if tokenizer.pad_token is None:

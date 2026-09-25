@@ -66,7 +66,9 @@ def convert(hf_id: str, output: Path, precision: str = "float16") -> None:
     output.mkdir(parents=True, exist_ok=True)
     print(f"converting {hf_id} → {output}", flush=True)
     AutoTokenizer.from_pretrained(hf_id).save_pretrained(output)
-    llama = AutoModelForCausalLM.from_pretrained(hf_id, torch_dtype=dtype)
+    llama = AutoModelForCausalLM.from_pretrained(
+        hf_id, torch_dtype=dtype, low_cpu_mem_usage=False
+    )
     cfg = TransformerConfig(**SMOLLM2_FLA)
     cfg.torch_dtype = dtype
     model = AutoModelForCausalLM.from_config(cfg).to(dtype)
