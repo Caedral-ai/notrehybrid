@@ -38,7 +38,8 @@ def build_student_from_teacher(cfg: dict, dtype: torch.dtype = torch.float32):
         "keep_full_attention_layers", keep_softmax_layers()
     )
 
-    teacher_config = AutoConfig.from_pretrained(teacher_name)
+    print(f"building student from {teacher_name}", flush=True)
+    teacher_config = AutoConfig.from_pretrained(teacher_name, local_files_only=True)
     config_dict = teacher_config.to_dict()
     config_dict["name"] = "student"
     config_dict["student_name"] = student_name
@@ -46,8 +47,9 @@ def build_student_from_teacher(cfg: dict, dtype: torch.dtype = torch.float32):
     student_config = StudentConfig(**config_dict)
 
     teacher = AutoModelForCausalLM.from_pretrained(
-        teacher_name, torch_dtype=dtype, low_cpu_mem_usage=True
+        teacher_name, torch_dtype=dtype, low_cpu_mem_usage=False, local_files_only=True
     )
+    print("teacher module ready", flush=True)
     student = AutoModelForCausalLM.from_config(student_config, torch_dtype=dtype)
 
     student.model.embeddings.weight.data.copy_(teacher.model.embeddings.weight.data)
