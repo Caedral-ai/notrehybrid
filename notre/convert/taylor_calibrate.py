@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 from pathlib import Path
 
 import torch
@@ -51,6 +52,9 @@ def main() -> None:
     if args.teacher:
         cfg["teacher_model"]["name"] = str(args.teacher)
     run_taylor_calibrate(cfg, args.output, args.hf_teacher)
+    # Non-daemon threads in the HF/torch stack can keep the process alive after
+    # the last print, which stalls the next notebook cell.
+    os._exit(0)
 
 
 if __name__ == "__main__":
