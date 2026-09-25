@@ -4,7 +4,12 @@ import pytest
 
 torch = pytest.importorskip("torch")
 
-from notre.layers.notre_linear import CollisionCache, collision_error, gated_delta_scan
+from notre.layers.notre_linear import (
+    CollisionCache,
+    apply_collision_cache,
+    collision_error,
+    gated_delta_scan,
+)
 
 
 def test_error_is_normalized_delta() -> None:
@@ -128,3 +133,41 @@ def test_scan_error_is_high_when_the_state_misses() -> None:
     assert err.shape == (1, 4, 1)
     assert torch.isfinite(err).all()
     assert q_hat.shape == q.shape and k_hat.shape == k.shape
+
+
+class _TinyGDN(torch.nn.Module):
+    def __init__(self) -> None:
+        super().__init__()
+        self.use_short_conv = False
+        self.head_dim = 4
+        self.q_proj = torch.nn.Linear(8, 4, bias=False)
+        self.k_proj = torch.nn.Linear(8, 4, bias=False)
+        self.v_proj = torch.nn.Linear(8, 4, bias=False)
+        self.a_proj = torch.nn.Linear(8, 1, bias=False)
+        self.b_proj = torch.nn.Linear(8, 1, bias=False)
+        self.A_log = torch.nn.Parameter(torch.zeros(1))
+        self.dt_bias = torch.nn.Parameter(torch.zeros(1))
+        self.o_proj = torch.nn.Linear(4, 8, bias=False)
+
+
+def test_disabled_cache_leaves_student_output() -> None:
+    module = _TinyGDN()
+    hidden = torch.randn(1, 3, 8)
+    student = torch.randn(1, 3, 8)
+    cache = CollisionCache(slots=4, tau=0.0)
+    out = apply_collision_cache(module, hidden, student, cache, enabled=False)
+    assert torch.equal(out, student)
+
+
+def test_enabled_cache_changes_student_output() -> None:
+    torch.manual_seed(0)
+    module = _TinyGDN()
+    with torch.no_grad():
+        module.o_proj.weight.copy_(torch.eye(8, 4))
+        module.v_proj.weight.copy_(torch.eye(4, 8))
+    hidden = torch.randn(1, 4, 8)
+    student = torch.zeros(1, 4, 8)
+    cache = CollisionCache(slots=4, tau=0.0)
+    out = apply_collision_cache(module, hidden, student, cache, enabled=True)
+    assert out.shape == student.shape
+    assert not torch.allclose(out, student)

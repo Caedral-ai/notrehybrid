@@ -131,3 +131,66 @@ class CollisionCache(nn.Module):
             out = torch.einsum("bhgk,bhkd->bhgd", attn, vals)
             outputs.append(out.reshape(batch, n_q, v.size(-1)))
         return torch.stack(outputs, dim=1)
+
+
+def _heads(x: Tensor, head_dim: int) -> Tensor:
+    return x.reshape(*x.shape[:-1], -1, head_dim)
+
+
+def project_qkv_gates(module: nn.Module, hidden: Tensor) -> tuple[Tensor, Tensor, Tensor, Tensor, Tensor]:
+    """q, k, v, beta, alpha from a Gated DeltaNet-style mixer.
+
+    Short conv is used when the module has it, matching the FLA forward.
+    Decay matches the kernel: ``exp(-exp(A_log) * softplus(a + dt_bias))``.
+    """
+    if getattr(module, "use_short_conv", False):
+        q, _ = module.q_conv1d(
+            x=module.q_proj(hidden), cache=None, output_final_state=False, cu_seqlens=None
+        )
+        k, _ = module.k_conv1d(
+            x=module.k_proj(hidden), cache=None, output_final_state=False, cu_seqlens=None
+        )
+        v, _ = module.v_conv1d(
+            x=module.v_proj(hidden), cache=None, output_final_state=False, cu_seqlens=None
+        )
+    else:
+        q = torch.nn.functional.silu(module.q_proj(hidden))
+        k = torch.nn.functional.silu(module.k_proj(hidden))
+        v = torch.nn.functional.silu(module.v_proj(hidden))
+
+    head_k = int(getattr(module, "head_k_dim", module.head_dim))
+    head_v = int(getattr(module, "head_v_dim", module.head_dim))
+    q = _heads(q, head_k)
+    k = _heads(k, head_k)
+    v = _heads(v, head_v)
+    if q.size(2) != k.size(2) or q.size(2) != v.size(2):
+        raise ValueError(
+            f"cache v0 needs equal q/k/v heads, got {q.size(2)}, {k.size(2)}, {v.size(2)}"
+        )
+
+    beta = torch.sigmoid(module.b_proj(hidden).float())
+    if getattr(module, "allow_neg_eigval", False):
+        beta = beta * 2
+    raw = module.a_proj(hidden).float()
+    dt_bias = getattr(module, "dt_bias", None)
+    if dt_bias is not None:
+        raw = raw + dt_bias.float()
+    alpha = torch.exp(-torch.exp(module.A_log.float()) * torch.nn.functional.softplus(raw))
+    return q, k, v, beta, alpha
+
+
+def apply_collision_cache(
+    module: nn.Module,
+    hidden: Tensor,
+    student_out: Tensor,
+    cache: CollisionCache,
+    enabled: bool,
+) -> Tensor:
+    """Add the cache read-out through ``o_proj``. Disabled returns ``student_out``."""
+    if not enabled:
+        return student_out
+    q, k, v, beta, alpha = project_qkv_gates(module, hidden)
+    _o_lin, err, q_hat, k_hat = gated_delta_scan(q, k, v, beta, alpha, eps=cache.eps)
+    readout = cache(q_hat, k_hat, v, err, enabled=True)
+    flat = readout.reshape(readout.shape[0], readout.shape[1], -1).to(dtype=module.o_proj.weight.dtype)
+    return student_out + module.o_proj(flat)

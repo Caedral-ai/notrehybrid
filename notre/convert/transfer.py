@@ -23,17 +23,25 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 
 from notre.convert.paths import assert_t4_or_newer, register_hf_classes
 from notre.convert.surgery import keep_softmax_layers
+from notre.layers.notre_linear import CollisionCache, apply_collision_cache
 from notre.train.smoke_resume import latest_ckpt, save_ckpt
 
 
-_DISTILL_LOSSES: list[torch.Tensor] = []
+_DISTILL_LOSSES: list[tuple[int, torch.Tensor]] = []
 _COLLECTING = False
 
 
 class AttentionDistillationWrapper(nn.Module):
     """Teacher-forced per-layer MSE. Residual stays the teacher hidden."""
 
-    def __init__(self, teacher_attn, student_cls, config, layer_idx: int):
+    def __init__(
+        self,
+        teacher_attn,
+        student_cls,
+        config,
+        layer_idx: int,
+        cache: CollisionCache | None = None,
+    ):
         super().__init__()
         self.teacher_attn = teacher_attn.eval()
         for p in self.teacher_attn.parameters():
@@ -41,6 +49,7 @@ class AttentionDistillationWrapper(nn.Module):
         self.student_attn = student_cls(config, layer_idx)
         self.student_attn.init_from_teacher(self.teacher_attn)
         self.layer_idx = layer_idx
+        self.cache = cache
 
     def forward(self, *args, **kwargs):
         kwargs["output_attentions"] = False
@@ -55,13 +64,18 @@ class AttentionDistillationWrapper(nn.Module):
             k: (v.float() if torch.is_tensor(v) and v.is_floating_point() else v)
             for k, v in kwargs.items()
         }
+        hidden = student_args[0] if student_args else student_kwargs.get("hidden_states")
         with autocast("cuda", enabled=False):
             s_hidden, _, _ = self.student_attn(*student_args, **student_kwargs)
+            if self.cache is not None and hidden is not None:
+                s_hidden = apply_collision_cache(
+                    self.student_attn, hidden, s_hidden, self.cache, enabled=True
+                )
         distill_loss = torch.linalg.vector_norm(
             t_hidden.float() - s_hidden.float(), dim=-1
         ).mean() * (t_hidden.size(-1) ** -0.5)
         if _COLLECTING:
-            _DISTILL_LOSSES.append(distill_loss)
+            _DISTILL_LOSSES.append((self.layer_idx, distill_loss))
         return t_hidden, None, None
 
 
@@ -80,7 +94,11 @@ def _load_student_sd(ckpt_dir: Path) -> dict | None:
     return out
 
 
-def build_wrapped_teacher(cfg: dict, device: torch.device) -> tuple[nn.Module, list[int]]:
+def build_wrapped_teacher(
+    cfg: dict,
+    device: torch.device,
+    cache: CollisionCache | None = None,
+) -> tuple[nn.Module, list[int]]:
     register_hf_classes()
     from distill_model.modeling_distilled_student import get_student_attention_class
 
@@ -99,7 +117,7 @@ def build_wrapped_teacher(cfg: dict, device: torch.device) -> tuple[nn.Module, l
                 p.requires_grad_(False)
             continue
         layer.attn = AttentionDistillationWrapper(
-            layer.attn, student_cls, model.config, idx
+            layer.attn, student_cls, model.config, idx, cache=cache
         )
 
     # Teacher weights are fp16. Student weights are loaded after that cast so the
@@ -155,7 +173,7 @@ def iter_fineweb_chunks(tokenizer, seq_len: int, subset: str, seed: int):
             yield torch.tensor(chunk, dtype=torch.long)
 
 
-def log_mse(path: Path, row: dict) -> None:
+def log_mse(path: Path, row: dict, layers: dict[int, float] | None = None) -> None:
     new = not path.exists()
     fields = ["step", "tokens", "mse"]
     with path.open("a", newline="") as f:
@@ -163,6 +181,18 @@ def log_mse(path: Path, row: dict) -> None:
         if new:
             w.writeheader()
         w.writerow({k: row[k] for k in fields})
+    if not layers:
+        return
+    layer_path = path.with_name("mse_layers.csv")
+    layer_new = not layer_path.exists()
+    keys = ["step", "tokens", *[f"l{idx}" for idx in sorted(layers)]]
+    with layer_path.open("a", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=keys)
+        if layer_new:
+            w.writeheader()
+        payload = {"step": row["step"], "tokens": row["tokens"]}
+        payload.update({f"l{idx}": f"{value:.6f}" for idx, value in layers.items()})
+        w.writerow(payload)
 
 
 def export_student(wrapped, init_dir: Path, out_dir: Path, keep_layers: list[int]) -> None:
@@ -190,7 +220,14 @@ def run_transfer(cfg: dict, args: argparse.Namespace) -> None:
     global _COLLECTING
     gpu = assert_t4_or_newer()
     device = torch.device("cuda")
-    print(f"Gate A transfer fp32 student / fp16 teacher on {gpu} — no cache")
+    cache_on = bool(getattr(args, "cache", False))
+    slots = int(getattr(args, "slots", 32) or 32)
+    tau = float(getattr(args, "tau", 0.5))
+    cache = CollisionCache(slots=slots, tau=tau) if cache_on else None
+    print(
+        f"transfer fp32 student / fp16 teacher on {gpu} — "
+        f"cache {'on' if cache_on else 'off'} slots={slots} tau={tau}"
+    )
 
     seq_len = int(cfg["train"]["train_seq_len"])
     micro = int(cfg["train"].get("micro_batch_size", 1))
@@ -199,7 +236,8 @@ def run_transfer(cfg: dict, args: argparse.Namespace) -> None:
     save_every = int(args.save_every or cfg["train"].get("save_steps", 100))
     keep = int(args.keep_last or cfg["train"].get("save_total_limit", 2))
     subset = cfg.get("data", {}).get("subset", "sample-10BT")
-    ckpt_dir = Path(args.ckpt_dir or cfg["train"]["output_dir"]) / "transfer"
+    run_name = "transfer-cache" if cache_on else "transfer"
+    ckpt_dir = Path(args.ckpt_dir or cfg["train"]["output_dir"]) / run_name
     ckpt_dir.mkdir(parents=True, exist_ok=True)
     csv_path = ckpt_dir / "mse.csv"
 
@@ -207,7 +245,7 @@ def run_transfer(cfg: dict, args: argparse.Namespace) -> None:
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
 
-    model, keep_layers = build_wrapped_teacher(cfg, device)
+    model, keep_layers = build_wrapped_teacher(cfg, device, cache=cache)
     params = trainable_params(model)
     try:
         opt = torch.optim.AdamW(params, lr=lr, betas=(0.9, 0.95), fused=True)
@@ -260,7 +298,9 @@ def run_transfer(cfg: dict, args: argparse.Namespace) -> None:
             _COLLECTING = False
             if not _DISTILL_LOSSES:
                 raise RuntimeError("wrapper collected no layer MSE")
-            loss = torch.stack(_DISTILL_LOSSES).mean()
+            losses = [item[1] for item in _DISTILL_LOSSES]
+            layer_mse = {idx: float(item.detach()) for idx, item in _DISTILL_LOSSES}
+            loss = torch.stack(losses).mean()
             if not torch.isfinite(loss):
                 raise SystemExit(f"NaN/Inf MSE at step {step}: {loss}")
             scaler.scale(loss).backward()
@@ -272,7 +312,7 @@ def run_transfer(cfg: dict, args: argparse.Namespace) -> None:
             step += 1
             tokens += seq_len
             mse = float(loss.detach())
-            log_mse(csv_path, {"step": step, "tokens": tokens, "mse": f"{mse:.6f}"})
+            log_mse(csv_path, {"step": step, "tokens": tokens, "mse": f"{mse:.6f}"}, layer_mse)
             if step == 1 or step % 10 == 0:
                 print(f"step {step} tokens={tokens} mse={mse:.5f}")
 
@@ -323,6 +363,9 @@ def main() -> None:
     p.add_argument("--keep-last", type=int, default=0)
     p.add_argument("--teacher", type=Path, default=None)
     p.add_argument("--student-init", type=Path, default=None)
+    p.add_argument("--cache", action="store_true", help="enable the err_t collision cache")
+    p.add_argument("--slots", type=int, default=32)
+    p.add_argument("--tau", type=float, default=0.5)
     args = p.parse_args()
     cfg = yaml.safe_load(args.cfg.read_text())
     if args.teacher:
