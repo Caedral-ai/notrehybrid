@@ -9,6 +9,7 @@ from notre.layers.notre_linear import (
     apply_collision_cache,
     collision_error,
     gated_delta_scan,
+    ring_readout,
 )
 
 
@@ -148,6 +149,17 @@ class _TinyGDN(torch.nn.Module):
         self.A_log = torch.nn.Parameter(torch.zeros(1))
         self.dt_bias = torch.nn.Parameter(torch.zeros(1))
         self.o_proj = torch.nn.Linear(4, 8, bias=False)
+
+
+def test_ring_readout_matches_sequential_cache() -> None:
+    torch.manual_seed(0)
+    q = torch.randn(2, 6, 2, 4)
+    k = torch.randn(2, 6, 2, 4)
+    v = torch.randn(2, 6, 2, 4)
+    err = torch.rand(2, 6, 2)
+    ref = CollisionCache(slots=3, tau=0.4)(q, k, v, err)
+    out = ring_readout(q, k, v, err, slots=3, tau=0.4)
+    assert torch.allclose(out, ref, atol=1e-5)
 
 
 def test_disabled_cache_leaves_student_output() -> None:

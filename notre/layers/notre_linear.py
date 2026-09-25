@@ -133,6 +133,38 @@ class CollisionCache(nn.Module):
         return torch.stack(outputs, dim=1)
 
 
+def ring_readout(
+    q_hat: Tensor,
+    k_hat: Tensor,
+    v: Tensor,
+    err: Tensor,
+    slots: int,
+    tau: float,
+) -> Tensor:
+    """Causal ring attention. The promote mask is detached; values keep grad.
+
+    Same write-then-read rule as ``CollisionCache``: a promoted token stays
+    visible until ``slots`` later promotions overwrite it.
+    """
+    if q_hat.shape != k_hat.shape:
+        raise ValueError("ring_readout v0 expects one query head per KV head")
+    batch, steps, heads, dim = q_hat.shape
+    promote = err > tau
+    rank = promote.to(torch.int32).cumsum(dim=1)
+    scale = dim ** -0.5
+    scores = torch.einsum("bthd,buhd->bhtu", q_hat, k_hat) * scale
+    rank_h = rank.permute(0, 2, 1)
+    age = rank_h.unsqueeze(-1) - rank_h.unsqueeze(-2)
+    future = torch.triu(torch.ones(steps, steps, dtype=torch.bool, device=q_hat.device), diagonal=1)
+    promoted = promote.permute(0, 2, 1).unsqueeze(2)
+    valid = promoted & ~future & (age >= 0) & (age < slots)
+    scores = scores.masked_fill(~valid, float("-inf"))
+    empty = ~valid.any(dim=-1, keepdim=True)
+    scores = scores.masked_fill(empty, 0.0)
+    attn = torch.softmax(scores, dim=-1).masked_fill(empty, 0.0)
+    return torch.einsum("bhtu,buhd->bthd", attn, v)
+
+
 def _heads(x: Tensor, head_dim: int) -> Tensor:
     return x.reshape(*x.shape[:-1], -1, head_dim)
 
@@ -179,6 +211,29 @@ def project_qkv_gates(module: nn.Module, hidden: Tensor) -> tuple[Tensor, Tensor
     return q, k, v, beta, alpha
 
 
+def delta_error(
+    q: Tensor,
+    k: Tensor,
+    v: Tensor,
+    beta: Tensor,
+    alpha: Tensor,
+    eps: float,
+) -> tuple[Tensor, Tensor, Tensor]:
+    """Return ``err, q_hat, k_hat``. On CUDA the scan is one Triton kernel."""
+    if q.is_cuda:
+        from notre.layers.cache_scan import triton_delta_error
+
+        scale = q.size(-1) ** -0.5
+        q32 = q.float()
+        k32 = k.float()
+        q_hat = q32 / q32.norm(dim=-1, keepdim=True).clamp_min(eps) * scale
+        k_hat = k32 / k32.norm(dim=-1, keepdim=True).clamp_min(eps)
+        err = triton_delta_error(k_hat, v.float(), beta.float(), alpha.float(), eps)
+        return err, q_hat, k_hat
+    _o_lin, err, q_hat, k_hat = gated_delta_scan(q, k, v, beta, alpha, eps)
+    return err, q_hat, k_hat
+
+
 def apply_collision_cache(
     module: nn.Module,
     hidden: Tensor,
@@ -190,7 +245,7 @@ def apply_collision_cache(
     if not enabled:
         return student_out
     q, k, v, beta, alpha = project_qkv_gates(module, hidden)
-    _o_lin, err, q_hat, k_hat = gated_delta_scan(q, k, v, beta, alpha, eps=cache.eps)
-    readout = cache(q_hat, k_hat, v, err, enabled=True)
+    err, q_hat, k_hat = delta_error(q, k, v, beta, alpha, cache.eps)
+    readout = ring_readout(q_hat, k_hat, v.float(), err, cache.slots, cache.tau)
     flat = readout.reshape(readout.shape[0], readout.shape[1], -1).to(dtype=module.o_proj.weight.dtype)
     return student_out + module.o_proj(flat)
