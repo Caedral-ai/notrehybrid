@@ -100,6 +100,7 @@ def build_wrapped_teacher(
     device: torch.device,
     cache: CollisionCache | None = None,
 ) -> tuple[nn.Module, list[int]]:
+    print("building wrapped teacher", flush=True)
     register_hf_classes()
     from distill_model.modeling_distilled_student import get_student_attention_class
 
@@ -108,9 +109,11 @@ def build_wrapped_teacher(
         cfg["student_model"].get("keep_full_attention_layers", keep_softmax_layers())
     )
     student_cls = get_student_attention_class(cfg["student_model"]["name"])
+    print(f"loading teacher {teacher_name}", flush=True)
     model = AutoModelForCausalLM.from_pretrained(
         teacher_name, torch_dtype=torch.float16
     )
+    print("teacher weights loaded", flush=True)
     model.config.use_cache = False
     for idx, layer in enumerate(model.model.layers):
         if idx in keep_layers:
@@ -276,6 +279,7 @@ def run_transfer(cfg: dict, args: argparse.Namespace) -> None:
     if tokens >= target and not args.max_steps:
         print(f"already at target_tokens={target}")
     else:
+        print("reading FineWeb", flush=True)
         for chunk in iter_fineweb_chunks(tokenizer, seq_len, subset, seed=0):
             if skipped < tokens:
                 skipped += seq_len
