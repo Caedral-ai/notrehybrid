@@ -7,6 +7,7 @@ T4: fp16 only.
 from __future__ import annotations
 
 import argparse
+import os
 import warnings
 from pathlib import Path
 
@@ -63,6 +64,7 @@ def convert(hf_id: str, output: Path, precision: str = "float16") -> None:
 
     output = Path(output)
     output.mkdir(parents=True, exist_ok=True)
+    print(f"converting {hf_id} → {output}", flush=True)
     AutoTokenizer.from_pretrained(hf_id).save_pretrained(output)
     llama = AutoModelForCausalLM.from_pretrained(hf_id, torch_dtype=dtype)
     cfg = TransformerConfig(**SMOLLM2_FLA)
@@ -104,6 +106,7 @@ def main() -> None:
     p.add_argument("--precision", default="float16")
     args = p.parse_args()
     convert(args.hf, args.out, args.precision)
+    os._exit(0)
 
 
 if __name__ == "__main__":
