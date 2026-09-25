@@ -1,0 +1,15 @@
+{
+  "id": "tyoungnoone/notrehybrid-gate-b",
+  "title": "Notrehybrid Gate B",
+  "code_file": "../../notebooks/kaggle_gate_b.ipynb",
+  "language": "python",
+  "kernel_type": "notebook",
+  "is_private": "true",
+  "enable_gpu": "true",
+  "enable_internet": "true",
+  "machine_shape": "NvidiaTeslaT4",
+  "dataset_sources": [],
+  "competition_sources": [],
+  "kernel_sources": [],
+  "model_sources": []
+}
