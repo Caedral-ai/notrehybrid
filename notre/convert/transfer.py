@@ -20,7 +20,7 @@ import torch.nn as nn
 import yaml
 from datasets import load_dataset
 from torch.amp import GradScaler, autocast
-from transformers import AutoModelForCausalLM, AutoTokenizer
+from transformers import AutoConfig, AutoModelForCausalLM, AutoTokenizer
 
 from notre.convert.paths import assert_t4_or_newer, register_hf_classes
 from notre.convert.surgery import keep_softmax_layers
