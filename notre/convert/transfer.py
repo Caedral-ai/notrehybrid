@@ -111,12 +111,17 @@ def build_wrapped_teacher(
     student_cls = get_student_attention_class(cfg["student_model"]["name"])
     print(f"loading teacher {teacher_name}", flush=True)
     teacher_dir = Path(teacher_name)
-    config = AutoConfig.from_pretrained(teacher_dir, local_files_only=True)
-    model = AutoModelForCausalLM.from_config(config, torch_dtype=torch.float16)
-    weights = _load_student_sd(teacher_dir)
-    if not weights:
-        raise SystemExit(f"no safetensors in {teacher_dir}")
-    missing, unexpected = model.load_state_dict(weights, strict=False)
+    try:
+        config = AutoConfig.from_pretrained(teacher_dir, local_files_only=True)
+        model = AutoModelForCausalLM.from_config(config)
+        weights = _load_student_sd(teacher_dir)
+        if not weights:
+            raise SystemExit(f"no safetensors in {teacher_dir}")
+        missing, unexpected = model.load_state_dict(weights, strict=False)
+        model = model.to(dtype=torch.float16)
+    except Exception as exc:
+        print(f"teacher load failed: {type(exc).__name__}: {exc}", flush=True)
+        raise
     print(
         f"teacher weights loaded missing={len(missing)} unexpected={len(unexpected)}",
         flush=True,
