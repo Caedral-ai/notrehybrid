@@ -11,6 +11,7 @@ from __future__ import annotations
 import argparse
 import csv
 import gc
+import os
 import time
 from pathlib import Path
 
@@ -350,6 +351,8 @@ def run_transfer(cfg: dict, args: argparse.Namespace) -> None:
     del model
     gc.collect()
     torch.cuda.empty_cache()
+    # The FineWeb stream thread aborts the interpreter during normal shutdown.
+    os._exit(0)
 
 
 def main() -> None:
