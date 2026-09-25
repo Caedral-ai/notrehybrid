@@ -111,7 +111,7 @@ def build_wrapped_teacher(
     student_cls = get_student_attention_class(cfg["student_model"]["name"])
     print(f"loading teacher {teacher_name}", flush=True)
     model = AutoModelForCausalLM.from_pretrained(
-        teacher_name, torch_dtype=torch.float16
+        teacher_name, torch_dtype=torch.float16, local_files_only=True
     )
     print("teacher weights loaded", flush=True)
     model.config.use_cache = False
@@ -148,7 +148,7 @@ def build_wrapped_teacher(
                 if piece:
                     layer.attn.student_attn.load_state_dict(piece, strict=False)
                     loaded += 1
-            print(f"loaded student_attn for {loaded} GDN layers from {init_path}")
+            print(f"loaded student_attn for {loaded} GDN layers from {init_path}", flush=True)
 
     for name, p in model.named_parameters():
         p.requires_grad_(".student_attn." in name)
@@ -230,7 +230,8 @@ def run_transfer(cfg: dict, args: argparse.Namespace) -> None:
     cache = CollisionCache(slots=slots, tau=tau) if cache_on else None
     print(
         f"transfer fp32 student / fp16 teacher on {gpu} — "
-        f"cache {'on' if cache_on else 'off'} slots={slots} tau={tau}"
+        f"cache {'on' if cache_on else 'off'} slots={slots} tau={tau}",
+        flush=True,
     )
 
     seq_len = int(cfg["train"]["train_seq_len"])
@@ -245,7 +246,8 @@ def run_transfer(cfg: dict, args: argparse.Namespace) -> None:
     ckpt_dir.mkdir(parents=True, exist_ok=True)
     csv_path = ckpt_dir / "mse.csv"
 
-    tokenizer = AutoTokenizer.from_pretrained(cfg["teacher_model"]["name"])
+    print("loading tokenizer", flush=True)
+    tokenizer = AutoTokenizer.from_pretrained(cfg["teacher_model"]["name"], local_files_only=True)
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
 
