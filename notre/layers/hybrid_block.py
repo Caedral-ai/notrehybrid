@@ -1,6 +1,6 @@
 """Week 0 hybrid stack: 3× FLA GatedDeltaNet + 1× dummy softmax.
 
-Collision cache / err_t is Week 2. Inherited teacher GQA is Week 1 surgery.
+The collision cache lives in notre_linear.py. This file is the Week 0 dummy stack.
 """
 
 from __future__ import annotations

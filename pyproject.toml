@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "notrehybrid"
 version = "0.0.0"
-description = "Caedral research: test whether a trainable collision cache, triggered by Gated DeltaNet delta error, improves Transformer linearization enough for a methods paper."
+description = "Caedral research, closed 2026-09-25: a trainable collision cache triggered by Gated DeltaNet delta error did not reduce attention-transfer MSE."
 readme = "README.md"
 license = { file = "LICENSE" }
 requires-python = ">=3.10"

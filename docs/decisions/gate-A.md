@@ -60,4 +60,4 @@ Collision cache, MQAR, Qwen, the full 5M-token transfer, LoLCATs as a retry.
 
 ## Next
 
-Gate B — [gate-B.md](gate-B.md): collision cache vs an identical twin. ΔMSE decides. Do not start it from this note alone.
+Gate B — [gate-B.md](gate-B.md): **ended 2026-09-25**. The collision cache did not reduce transfer MSE. The project stops there.

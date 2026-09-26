@@ -6,4 +6,5 @@ bash scripts/create_hf_repo.sh
 # Override name if needed:
 # HF_CHECKPOINT_REPO=your-user/notre-checkpoints bash scripts/create_hf_repo.sh
 
-# Public weights only if Gate C passes. Until then keep the repo private.
+# Keep the repo private. Gate B ended the project on 2026-09-25.
+# There is no public weight release.

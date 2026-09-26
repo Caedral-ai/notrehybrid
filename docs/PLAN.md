@@ -1,10 +1,10 @@
 # Execution funnel
 
-Public schedule for NotreHybrid. This is **Caedral research** toward a methods paper, not a product roadmap. Do not skip gates.
+Public schedule for NotreHybrid. This was **Caedral research** toward a methods paper, not a product roadmap. The schedule is closed.
 
 The long-form plan stays in local `internal-docs/` (gitignored; not on remotes). Hypothesis, ownership, and Week 0 smoke: [README](../README.md).
 
-> **Now: Gate B (Weeks 2–3).** Gate A passed 2026-09-24 ([decisions/gate-A.md](decisions/gate-A.md)). Next is the collision cache.
+> **Ended 2026-09-25.** Gate B failed ([decisions/gate-B.md](decisions/gate-B.md)). Mean transfer MSE with the cache was higher than the twin at every measured (K, τ). No Gate C. No tech report.
 
 ## Funnel
 
@@ -12,9 +12,9 @@ The long-form plan stays in local `internal-docs/` (gitignored; not on remotes).
 |---|---|---|---|
 | **Week 0** | Setup + FLA smoke + dummy `HybridBlock` + resume | [decisions/week-0.md](decisions/week-0.md) — **passed** 2026-09-17 | Then Gate A |
 | **Week 1** | Gate A — SmolLM2 3:1 surgery, Taylor-Calibrate, transfer probe, **no cache** | [decisions/gate-A.md](decisions/gate-A.md) — **passed** 2026-09-24 | PPL still thousands or MSE does not fall → abandon |
-| **Weeks 2–3** | Gate B — collision cache vs twin; ΔMSE **decides**; MQAR reports | [decisions/gate-B.md](decisions/gate-B.md) + ΔMSE table | ΔMSE ≤ 0 after K/τ sweep → **end**. MQAR+ and MSE− → **end** |
-| **Weeks 4–6** | Gate C — Qwen2.5-0.5B ± twin, only if B passed | Qwen checkpoint + twin + PPL | MSE fail → SmolLM2-only (pilot) paper, or skip replication |
-| **Week 7+** | Optional appendix + draft | figures in the paper, not the README headline | Decode / OpenVINO only after ΔMSE on Qwen |
+| **Weeks 2–3** | Gate B — collision cache vs twin; ΔMSE **decides** | [decisions/gate-B.md](decisions/gate-B.md) — **failed** 2026-09-25 | ΔMSE ≤ 0 after the K/τ sweep → **end** |
+| **Weeks 4–6** | Gate C — Qwen2.5-0.5B, only if B passed | will not run | |
+| **Week 7+** | Optional appendix + draft | will not run | |
 
 ```
 A fails     → abandon
@@ -60,15 +60,34 @@ Pass: calibrated zero-shot PPL ≪ copy-only; transfer MSE falls and stabilizes;
 
 **Passed 2026-09-24** — log: [decisions/gate-A.md](decisions/gate-A.md). Copy-only PPL 1156, Taylor PPL 346, probe MSE 1.555 → 0.798.
 
+## Gate B result
+
+Same SmolLM2 student, seed 0, Taylor init. Cache on versus the ring off. The decision step is step 500, where the 20-minute twin has MSE **0.94699**.
+
+| K | τ | MSE @ 500 | ΔMSE |
+|---|---|---|---|
+| 8 | 0.3 | 0.95972 | −1.34% |
+| 8 | 0.5 | 0.96274 | −1.66% |
+| 8 | 0.7 | 0.96713 | −2.13% |
+| 32 | 0.3 | 0.96978 | −2.41% |
+| 32 | 0.5 | 0.97057 | −2.49% |
+| 32 | 0.7 | 0.97557 | −3.02% |
+| 64 | 0.3 | 0.97235 | −2.68% |
+| 64 | 0.5 | | not run |
+| 64 | 0.7 | | not run |
+
+**Failed 2026-09-25** — log: [decisions/gate-B.md](decisions/gate-B.md). MQAR and trigger ablations were not run.
+
 ## What is in vs out
 
-| In the paper if gates pass | Out of this project |
+| Measured | Out of this project |
 |---|---|
-| Trainable collision cache, `err_t` trigger, transfer ΔMSE | Shipping a chat model or Caedral API feature |
-| Ablations: LoLA trigger, teacher top-K, random slots | Rust, FoX, ACP, QAT, Notre-1B, `notre-cpu` |
-| Qwen replication after B | tok/s vs llama.cpp as success |
+| Trainable collision cache, `err_t` trigger, transfer ΔMSE on SmolLM2 | A methods paper, a tech report, Qwen |
+| The K/τ cells in the table above | LoLA / teacher top-K / random trigger ablations |
+| | Shipping a chat model or a Caedral API feature |
+| | Rust, FoX, ACP, QAT, Notre-1B, `notre-cpu`, tok/s vs llama.cpp |
 
-Converted SmolLM2 / Qwen are **vehicles**. The experiment is whether the cache moves MSE.
+Converted SmolLM2 was the vehicle. The cache did not move MSE in the direction the paper needed.
 
 ## Compute
 
@@ -76,8 +95,8 @@ Kaggle T4×2 (30 h/week), Colab T4 overflow, Lightning for short dev. Checkpoint
 
 ## Decisions
 
-Fill the templates when the run finishes, not before:
+The runs are recorded:
 
 - [week-0.md](decisions/week-0.md) — **GO A** (2026-09-17)
 - [gate-A.md](decisions/gate-A.md) — **GO B** (2026-09-24)
-- [gate-B.md](decisions/gate-B.md) — GO C / END OF PROJECT
+- [gate-B.md](decisions/gate-B.md) — **END OF PROJECT** (2026-09-25)

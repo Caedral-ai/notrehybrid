@@ -46,3 +46,5 @@ SmolLM2, Qwen, collision cache, MQAR training, Taylor-Calibrate *runs*, private 
 ## Next
 
 Gate A — [gate-A.md](gate-A.md): **passed 2026-09-24** (GO B). 3:1 surgery, Taylor-Calibrate, transfer probe, **no cache**.
+
+Gate B — [gate-B.md](gate-B.md): **ended 2026-09-25**. The collision cache did not reduce transfer MSE. No Gate C.

@@ -37,7 +37,7 @@ def main() -> int:
 
     print(f"logged in as {name}")
     print(f"private model repo ready: {url}")
-    print("Keep it private until Gate C. Do not publish weights from Week 0.")
+    print("Keep it private. Gate B ended the project. Do not publish weights.")
     return 0
 
 

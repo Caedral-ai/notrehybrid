@@ -19,7 +19,7 @@ API, and not something to install or sell.
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-green" alt="License"></a>
   <a href="pyproject.toml"><img src="https://img.shields.io/badge/python-3.10%2B-3776AB?logo=python&logoColor=white" alt="Python"></a>
   <a href="notebooks/kaggle_week0_smoke.ipynb"><img src="https://img.shields.io/badge/compute-Kaggle%20T4%C3%972-20BEFF?logo=kaggle&logoColor=white" alt="Compute"></a>
-  <a href="#status"><img src="https://img.shields.io/badge/status-gate%20A%20passed-brightgreen" alt="Status"></a>
+  <a href="#status"><img src="https://img.shields.io/badge/status-ended%20at%20gate%20B-red" alt="Status"></a>
   <a href="https://caedral.com"><img src="https://img.shields.io/badge/Caedral-research-111111" alt="Caedral"></a>
 </p>
 
@@ -29,11 +29,10 @@ is separate internal research.*
 
 ---
 
-> **Status: Gate A passed 2026-09-24 (GO B).** Week 0 passed 2026-09-17.
-> Log: [docs/decisions/gate-A.md](docs/decisions/gate-A.md).
-> SmolLM2 3:1 + Taylor-Calibrate + transfer probe, **no cache**.
-> Notebook: [notebooks/kaggle_gate_a.ipynb](notebooks/kaggle_gate_a.ipynb).
-> Gate B (collision cache) is next.
+> **Status: ended 2026-09-25 (Gate B failed).** Week 0 passed 2026-09-17.
+> Gate A passed 2026-09-24. The collision cache did not reduce transfer MSE.
+> Log: [docs/decisions/gate-B.md](docs/decisions/gate-B.md).
+> No Gate C. No tech report.
 
 ## Why
 
@@ -44,8 +43,8 @@ a different trigger. The bet here is narrower:
 **Promote the residual the GDN state failed to write, train that buffer
 during attention transfer, and see if imitation MSE actually moves.**
 
-If it does not, the project ends. There is no fallback of “publish the
-conversion” and no plan to ship a chat model.
+If it does not, the project ends. It did not. Gate B failed on 2026-09-25.
+There is no fallback of “publish the conversion” and no plan to ship a chat model.
 
 ## The hypothesis
 
@@ -65,9 +64,9 @@ trainable budget). ΔMSE is the paper. Everything else is scaffolding.
 
 | Gate | Signal | Pass | Fail |
 |---|---|---|---|
-| **A** | SmolLM2 transfer → GDN (no cache) | MSE falls and stabilizes; calibrated PPL ≪ copy-only | abandon |
-| **B** | collision cache vs identical twin | `MSE_with < MSE_without` on a majority of layers | **end of project** |
-| **C** | same ΔMSE on Qwen2.5-0.5B | replication | pilot-only paper, or skip |
+| **A** | SmolLM2 transfer → GDN (no cache) | **passed** 2026-09-24 | abandon |
+| **B** | collision cache vs identical twin | `MSE_with < MSE_without` on a majority of layers | **failed** 2026-09-25 — end of project |
+| **C** | same ΔMSE on Qwen2.5-0.5B | replication | will not run |
 
 MQAR is **support**. If MQAR wins and MSE does not → abandon (synthetic
 false positive). Decode `ms/token`, Rust, and tok/s vs `llama.cpp` are
@@ -88,9 +87,10 @@ Weeks 4–6 Gate C — Qwen, only if B passed
 | Dummy 3:1 `HybridBlock` | ![](https://img.shields.io/badge/status-working-brightgreen) | 3× FLA GDN + dummy softmax; CPU unit test |
 | FLA T4 smoke | ![](https://img.shields.io/badge/status-passed-brightgreen) | `FLA OK Tesla T4` (2026-09-17) |
 | Resume harness | ![](https://img.shields.io/badge/status-passed-brightgreen) | loaded 3 → 21687 → 25871; see [docs/decisions/week-0.md](docs/decisions/week-0.md) |
-| Collision cache | ![](https://img.shields.io/badge/status-week%202-orange) | `notre_linear.py` — not started |
+| Collision cache | ![](https://img.shields.io/badge/status-no%20gain-red) | measured; mean MSE worse than the twin at step 500 |
 | Gate A convert / transfer | ![](https://img.shields.io/badge/status-passed-brightgreen) | PPL 1156 → 346; MSE 1.555 → 0.798; [docs/decisions/gate-A.md](docs/decisions/gate-A.md) |
-| Gate B / C | ![](https://img.shields.io/badge/status-not%20started-lightgrey) | templates in `docs/decisions/` |
+| Gate B | ![](https://img.shields.io/badge/status-failed-red) | ΔMSE −1.3% to −3.0% at step 500; [docs/decisions/gate-B.md](docs/decisions/gate-B.md) |
+| Gate C | ![](https://img.shields.io/badge/status-will%20not%20run-lightgrey) | Qwen stays unstarted |
 
 Long-form notes live in local `internal-docs/` (gitignored, not on remotes).
 
@@ -99,18 +99,18 @@ Long-form notes live in local `internal-docs/` (gitignored, not on remotes).
 ```
 README.md · LICENSE · pyproject.toml · setup_kaggle.sh
 docs/PLAN.md · docs/decisions/week-0.md · gate-A.md · gate-B.md
-notebooks/kaggle_week0_smoke.ipynb · kaggle_gate_a.ipynb
+notebooks/kaggle_week0_smoke.ipynb · kaggle_gate_a.ipynb · kaggle_gate_b.ipynb
 configs/smollm2_360m/gate_a.yaml
 notre/
   layers/hybrid_block.py     # Week 0: 3× GDN + dummy softmax
+  layers/notre_linear.py     # collision cache, err_t ring
+  layers/cache_scan.py       # Triton delta-error scan
   train/smoke_resume.py      # local checkpoint resume
-  convert/                   # Gate A: HF→FLA, 3:1, Taylor init, transfer
+  convert/                   # HF→FLA, 3:1, Taylor init, transfer ± cache
   eval/ppl.py                # WikiText-2 PPL (fp32)
-tests/test_hybrid_block.py · test_surgery.py
+tests/test_hybrid_block.py · test_surgery.py · test_notre_linear.py
 internal-docs/               # gitignored — canonical research plan
 ```
-
-Week 2+ (not in tree yet): `notre_linear.py` collision cache, MQAR.
 
 ## Quick start (Week 0)
 
@@ -174,7 +174,16 @@ python -m notre.convert.transfer --cfg configs/smollm2_360m/gate_a.yaml \
 ```
 
 Notebook: [notebooks/kaggle_gate_a.ipynb](notebooks/kaggle_gate_a.ipynb).
-Fill [docs/decisions/gate-A.md](docs/decisions/gate-A.md) after the run.
+Recorded in [docs/decisions/gate-A.md](docs/decisions/gate-A.md) — **passed** 2026-09-24.
+
+## Gate B (Weeks 2–3) — ended
+
+Cache on, same student, same seed, ring off as the twin. ΔMSE at matched step 500 was negative on every measured (K, τ): about **−1.3%** (K=8, τ=0.3) to **−3.0%** (K=32, τ=0.7). Larger K and higher τ were worse. K=64 at τ=0.5 and τ=0.7 were not run.
+
+MQAR and the trigger ablations were not run. They were required only if ΔMSE was positive.
+
+Notebook: [notebooks/kaggle_gate_b.ipynb](notebooks/kaggle_gate_b.ipynb).
+Recorded in [docs/decisions/gate-B.md](docs/decisions/gate-B.md) — **END OF PROJECT**, 2026-09-25.
 
 Private Hub (after `huggingface-cli login`):
 
@@ -187,10 +196,10 @@ Weights stay private unless a later gate actually earns a paper release.
 ## Principles
 
 - **The cache is the experiment.** The linearized model is a vehicle.
-- **Kill hard at Gate B.** No tech report if ΔMSE ≤ 0 after a short K/τ sweep.
-- **Measure the right thing.** Transfer MSE decides; MQAR reports; decode is appendix.
+- **Kill hard at Gate B.** That rule fired on 2026-09-25. No tech report.
+- **Measure the right thing.** Transfer MSE decided; MQAR was support and was not run.
 - **Free T4 only.** Kaggle / Colab / Lightning. Never P100 (no Triton).
-- **Do not skip gates.** No Qwen, no cache, no paper scaffolding before A then B.
+- **Do not continue past B.** No Qwen, no paper scaffolding, no tech report.
 
 ## Non-goals
 
